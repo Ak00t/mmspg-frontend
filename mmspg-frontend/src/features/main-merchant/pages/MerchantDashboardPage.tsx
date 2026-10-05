@@ -12,7 +12,6 @@ function formatMoney(value: number) {
 }
 
 export function MerchantDashboardPage() {
-  const [merchantId, setMerchantId] = useState(() => localStorage.getItem('mmspg_merchant_id') ?? '')
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [summary, setSummary] = useState(emptyDashboardSummary)
@@ -23,15 +22,13 @@ export function MerchantDashboardPage() {
   const hasStatusData = useMemo(() => Object.keys(summary.transactionsByStatus).length > 0, [summary.transactionsByStatus])
 
   const loadDashboard = async () => {
-    if (!merchantId) return setError('Enter a merchant ID to load the dashboard.')
     if (startDate > endDate) return setError('The start date must not be after the end date.')
     setLoading(true)
     setError('')
     try {
-      const data = await getMerchantDashboardSummary(merchantId, startDate, endDate)
+      const data = await getMerchantDashboardSummary(startDate, endDate)
       setSummary({ ...emptyDashboardSummary, ...data })
       setLastUpdated(new Date())
-      localStorage.setItem('mmspg_merchant_id', merchantId)
     } catch (requestError) {
       if (axios.isAxiosError(requestError) && requestError.response?.status === 403) setError('You do not have access to this merchant dashboard.')
       else setError('Could not load dashboard data. Check the API and your login token.')
@@ -53,7 +50,6 @@ export function MerchantDashboardPage() {
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
               <div><p className="text-sm text-slate-500">Overview of your payment activity</p><p className="mt-1 text-xs text-slate-400">{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : 'Choose a date range to begin'}</p></div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <input aria-label="Merchant ID" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-indigo-200 focus:ring-4 sm:w-72" placeholder="Merchant ID" value={merchantId} onChange={(event) => setMerchantId(event.target.value)} />
                 <input aria-label="Start date" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-indigo-200 focus:ring-4" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
                 <input aria-label="End date" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-indigo-200 focus:ring-4" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
                 <button className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60" onClick={() => void loadDashboard()} disabled={loading}>{loading ? 'Loading…' : 'Refresh'}</button>
@@ -77,4 +73,3 @@ export function MerchantDashboardPage() {
     </main>
   )
 }
-
