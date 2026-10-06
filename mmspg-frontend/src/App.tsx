@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+//import { MerchantDashboard } from './features/main-merchant/pages/MerchantDashboardPage';
+
 
 // Auth Views
 import Login from './views/auth/Login';
@@ -25,7 +27,7 @@ export default function App() {
         {/* Public Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        
+
         {/* Default Redirect to Login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
 
@@ -53,4 +55,5 @@ export default function App() {
       </Routes>
     </BrowserRouter>
   );
+
 }
