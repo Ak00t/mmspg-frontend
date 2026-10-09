@@ -9,14 +9,27 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const adminLinks = [
-    { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/admin/merchant-approvals', icon: Users, label: 'Merchant Approvals' },
-    { to: '/admin/branches', icon: Building2, label: 'Branch Management' },
-    { to: '/admin/mcc-configuration', icon: Settings, label: 'Fee Management' },
-    { to: '/admin/terminals', icon: CreditCard, label: 'Admin Terminals' },
-    { to: '/admin/staff-users', icon: UserCog, label: 'Staff Users' },
+  // 🔴 ၁။ LocalStorage မှ လက်ရှိ User ၏ Role ကို ယူမည်
+  const userRole = localStorage.getItem('userRole') || 'ADMIN';
+  
+  // 🔴 ၂။ Role ပေါ်မူတည်၍ လမ်းကြောင်းအစ (Base Path) ကို ခွဲခြားမည်
+  const basePath = userRole === 'SUPPORT' ? '/support' : '/admin';
+
+  // 🔴 ၃။ အားလုံးမြင်ရမည့် Menu များကို basePath ဖြင့် ရေးမည်
+  let sidebarLinks = [
+    { to: `${basePath}/dashboard`, icon: LayoutDashboard, label: 'Dashboard' },
+    { to: `${basePath}/merchant-approvals`, icon: Users, label: 'Merchant Approvals' },
+    { to: `${basePath}/branches`, icon: Building2, label: 'Branch Management' }
   ];
+
+  // 🔴 ၄။ ADMIN ဝင်လာမှသာ ကျန်ရှိသော Menu ၃ ခုကို ထပ်ပေါင်းထည့်မည်
+  if (userRole === 'ADMIN') {
+    sidebarLinks.push(
+      { to: `${basePath}/mcc-configuration`, icon: Settings, label: 'Mcc Management' },
+      { to: `${basePath}/terminals`, icon: CreditCard, label: 'Admin Terminals' },
+      { to: `${basePath}/staff-users`, icon: UserCog, label: 'Staff Users' }
+    );
+  }
 
   return (
     <aside className="w-64 bg-slate-900 text-white min-h-screen flex flex-col transition-all duration-300 shadow-xl z-20">
@@ -27,7 +40,9 @@ export default function Sidebar() {
         <div className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
           Administration
         </div>
-        {adminLinks.map((link) => {
+        
+        {/* 🔴 ၅။ adminLinks အစား ပြင်ဆင်ထားသော sidebarLinks ကို အသုံးပြုမည် */}
+        {sidebarLinks.map((link) => {
           const Icon = link.icon;
           return (
             <NavLink

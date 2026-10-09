@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Tag, Edit, Trash2 } from 'lucide-react';
+import { Search, Plus, Tag, Edit, Trash2, X } from 'lucide-react';
 
-// Database ထဲရှိ mcc_codes table နှင့် ကိုက်ညီမည့် Interface ကို တည်ဆောက်ခြင်း
 interface MccCode {
-  mccId: number; 
+  id: number; 
   mccCode: string;
   mccName: string;
   description: string | null;
@@ -16,8 +15,19 @@ export default function MccConfiguration() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Edit Modal အတွက် State များ
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingMcc, setEditingMcc] = useState<MccCode | null>(null);
+
+  // 🔴 Add Modal အတွက် State အသစ်များ
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newMcc, setNewMcc] = useState({ mccCode: '', mccName: '', description: '' });
+
   useEffect(() => {
-    // Local Storage မှ Token ကို ယူပါ
+    fetchMccCodes();
+  }, []);
+
+  const fetchMccCodes = async () => {
     const token = localStorage.getItem('token'); 
     
     if (!token) {
@@ -26,47 +36,139 @@ export default function MccConfiguration() {
         return; 
     }
 
-    // Backend API လမ်းကြောင်း (သင့် Controller တွင် ဤလမ်းကြောင်း ရှိရပါမည်)
-    fetch('http://127.0.0.1:8004/api/v1/admin/mcc', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` 
-      }
-    })
-      .then((response) => {
-        if (response.status === 401 || response.status === 403) {
-           console.error("Unauthorized! Please login again.");
-           throw new Error('Unauthorized');
+    try {
+      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/mcc', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
         }
-        if (!response.ok) throw new Error('Network response was not ok');
-        return response.json();
-      })
-      .then((data) => {
-        setMccCodes(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error fetching MCC codes:', error);
-        setLoading(false);
       });
-  }, []);
 
-  // MCC Code သို့မဟုတ် Name ဖြင့် ရှာဖွေနိုင်ရန် Filter
+      if (response.status === 401 || response.status === 403) {
+         console.error("Unauthorized! Please login again.");
+         throw new Error('Unauthorized');
+      }
+      if (!response.ok) throw new Error('Network response was not ok');
+      
+      const data = await response.json();
+      setMccCodes(data);
+    } catch (error) {
+      console.error('Error fetching MCC codes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔴 ၁။ Add အသစ်လုပ်မည့် Function
+  const handleAddSubmit = async () => {
+    if (!newMcc.mccCode || !newMcc.mccName) {
+      alert("MCC Code and Category Name are required.");
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/mcc', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newMcc)
+      });
+
+      if (response.ok) {
+        const createdMcc = await response.json();
+        // UI သို့ Data အသစ်ကို ချက်ချင်းပေါင်းထည့်မည်
+        setMccCodes([...mccCodes, createdMcc]);
+        // Modal ကို ပိတ်ပြီး Form ကို Reset ပြန်လုပ်မည်
+        setIsAddModalOpen(false);
+        setNewMcc({ mccCode: '', mccName: '', description: '' });
+      } else {
+        alert('Failed to add new MCC.');
+      }
+    } catch (error) {
+      console.error('Error adding MCC:', error);
+    }
+  };
+
+  const openEditModal = (mcc: MccCode) => {
+    setEditingMcc({ ...mcc });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingMcc) return;
+    const token = localStorage.getItem('token');
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/mcc/${editingMcc.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          mccCode: editingMcc.mccCode,
+          mccName: editingMcc.mccName,
+          description: editingMcc.description
+        })
+      });
+
+      if (response.ok) {
+        setMccCodes(mccCodes.map(m => m.id === editingMcc.id ? editingMcc : m));
+        setIsEditModalOpen(false);
+        setEditingMcc(null);
+      } else {
+        alert('Failed to update MCC details.');
+      }
+    } catch (error) {
+      console.error('Error updating MCC:', error);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this MCC code?')) return;
+    
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/mcc/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setMccCodes(mccCodes.filter(m => m.id !== id));
+      } else {
+        alert('Failed to delete MCC code.');
+      }
+    } catch (error) {
+      console.error('Error deleting MCC:', error);
+    }
+  };
+
   const filteredMccCodes = mccCodes.filter(mcc => 
     (mcc.mccCode && mcc.mccCode.toLowerCase().includes(searchTerm.toLowerCase())) || 
     (mcc.mccName && mcc.mccName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">MCC & Fee Configuration</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage merchant category codes and fee structures here.</p>
+          <h1 className="text-2xl font-bold text-slate-800">MCC Configuration</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage merchant category codes here.</p>
         </div>
-        <button className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+        {/* 🔴 ၂။ Add MCC ခလုတ်တွင် Modal ပွင့်ရန် ချိတ်ဆက်ထားပါသည် */}
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
           <Plus className="h-4 w-4 mr-2" />
           Add MCC
         </button>
@@ -105,7 +207,7 @@ export default function MccConfiguration() {
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
                 {filteredMccCodes.map((mcc, index) => (
-                  <tr key={mcc.mccId || index} className="hover:bg-slate-50 transition-colors">
+                 <tr key={mcc.id || index} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
@@ -131,10 +233,14 @@ export default function MccConfiguration() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                        <button 
+                          onClick={() => openEditModal(mcc)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                        <button 
+                          onClick={() => handleDelete(mcc.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -153,6 +259,141 @@ export default function MccConfiguration() {
           )}
         </div>
       </div>
+
+      {/* 🔴 ၃။ Add New MCC Modal (ပုံထဲက Design အတိုင်း) */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800">Add New MCC</h2>
+              <button 
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setNewMcc({ mccCode: '', mccName: '', description: '' });
+                }} 
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">MCC Code (4 digits)</label>
+                <input 
+                  type="text" 
+                  value={newMcc.mccCode} 
+                  onChange={(e) => setNewMcc({...newMcc, mccCode: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="e.g. 5814"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Category Name</label>
+                <input 
+                  type="text" 
+                  value={newMcc.mccName} 
+                  onChange={(e) => setNewMcc({...newMcc, mccName: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="e.g. Fast Food Restaurants"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea 
+                  rows={2}
+                  value={newMcc.description} 
+                  onChange={(e) => setNewMcc({...newMcc, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Optional details..."
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+              <button 
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setNewMcc({ mccCode: '', mccName: '', description: '' });
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAddSubmit}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit MCC Modal (ယခင်အတိုင်း) */}
+      {isEditModalOpen && editingMcc && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800">Edit MCC</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">MCC Code (4 digits)</label>
+                <input 
+                  type="text" 
+                  value={editingMcc.mccCode} 
+                  onChange={(e) => setEditingMcc({...editingMcc, mccCode: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Category Name</label>
+                <input 
+                  type="text" 
+                  value={editingMcc.mccName} 
+                  onChange={(e) => setEditingMcc({...editingMcc, mccName: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea 
+                  rows={2}
+                  value={editingMcc.description || ''} 
+                  onChange={(e) => setEditingMcc({...editingMcc, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+              <button 
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveEdit}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
