@@ -19,7 +19,6 @@ import StaffUsers from './views/admin/StaffUsers';
 // Merchant Views
 import MerchantDashboard from './views/merchant/Dashboard';
 
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -37,9 +36,19 @@ export default function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="merchant-approvals" element={<MerchantApprovals />} />
             <Route path="branches" element={<BranchManagement />} />
-            <Route path="/admin/mcc-configuration" element={<MccManagement />} />
+            <Route path="mcc-configuration" element={<MccManagement />} /> {/* Note: ရေးထုံးပြင်ထားသည် */}
             <Route path="terminals" element={<AdminTerminals />} />
             <Route path="staff-users" element={<StaffUsers />} />
+          </Route>
+        </Route>
+
+        {/* 🔴 Protected Support Routes (အသစ်ထပ်ထည့်ထားသောအပိုင်း) */}
+        <Route path="/support" element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="merchant-approvals" element={<MerchantApprovals />} />
+            <Route path="branches" element={<BranchManagement />} />
+            {/* 💡 Support သွားခွင့်ရှိသော အခြားစာမျက်နှာများကို ဤနေရာတွင် ထပ်ထည့်နိုင်ပါသည် */}
           </Route>
         </Route>
 
