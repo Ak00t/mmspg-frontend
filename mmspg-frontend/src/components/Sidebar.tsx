@@ -16,19 +16,26 @@ export default function Sidebar() {
   const basePath = userRole === 'SUPPORT' ? '/support' : '/admin';
 
   // 🔴 ၃။ အားလုံးမြင်ရမည့် Menu များကို basePath ဖြင့် ရေးမည်
-  let sidebarLinks = [
-    { to: `${basePath}/dashboard`, icon: LayoutDashboard, label: 'Dashboard' },
-    { to: `${basePath}/merchant-approvals`, icon: Users, label: 'Merchant Approvals' },
-    { to: `${basePath}/branches`, icon: Building2, label: 'Branch Management' }
-  ];
+  let sidebarLinks = [];
 
-  // 🔴 ၄။ ADMIN ဝင်လာမှသာ ကျန်ရှိသော Menu ၃ ခုကို ထပ်ပေါင်းထည့်မည်
-  if (userRole === 'ADMIN') {
-    sidebarLinks.push(
-      { to: `${basePath}/mcc-configuration`, icon: Settings, label: 'Mcc Management' },
-      { to: `${basePath}/terminals`, icon: CreditCard, label: 'Admin Terminals' },
-      { to: `${basePath}/staff-users`, icon: UserCog, label: 'Staff Users' }
-    );
+  if (userRole === 'MERCHANT') {
+    sidebarLinks = [
+      { to: '/merchant/dashboard', icon: LayoutDashboard, label: 'Dashboard & Reports' }
+    ];
+  } else {
+    sidebarLinks = [
+      { to: `${basePath}/dashboard`, icon: LayoutDashboard, label: 'Dashboard' },
+      { to: `${basePath}/merchant-approvals`, icon: Users, label: 'Merchant Approvals' },
+      { to: `${basePath}/branches`, icon: Building2, label: 'Branch Management' }
+    ];
+
+    if (userRole === 'ADMIN') {
+      sidebarLinks.push(
+        { to: `${basePath}/mcc-configuration`, icon: Settings, label: 'Mcc Management' },
+        { to: `${basePath}/terminals`, icon: CreditCard, label: 'Admin Terminals' },
+        { to: `${basePath}/staff-users`, icon: UserCog, label: 'Staff Users' }
+      );
+    }
   }
 
   return (

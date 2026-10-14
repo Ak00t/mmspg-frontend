@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, ChevronDown, Bell, Search } from 'lucide-react';
+import { LogOut, ChevronDown, Bell, Search } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Header() {
@@ -11,20 +11,22 @@ export default function Header() {
   const userRole = localStorage.getItem('userRole') || 'ADMIN';
 
   const handleLogout = () => {
-    // 🔴 ၁။ ထွက်ခွာသည့်အခါ Token နှင့် Data များအားလုံးကို ရှင်းလင်းမည်
     localStorage.removeItem('token');
+    localStorage.removeItem('mmspg_token');
     localStorage.removeItem('userId');
+    localStorage.removeItem('merchantId');
+    localStorage.removeItem('mmspg_merchant_id');
     localStorage.removeItem('userName');
     localStorage.removeItem('userRole');
-    
-    // 🔴 ၂။ Login စာမျက်နှာသို့ ပြန်ပို့မည်
     navigate('/login');
   };
 
   return (
     <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm z-10">
       <div className="flex items-center flex-1">
-        <h2 className="text-xl font-semibold text-slate-800 hidden md:block">Admin Portal</h2>
+        <h2 className="text-xl font-semibold text-slate-800 hidden md:block">
+          {userRole === 'MERCHANT' ? 'Merchant Portal' : userRole === 'SUPPORT' ? 'Support Portal' : 'Admin Portal'}
+        </h2>
         
         {/* Search bar placeholder */}
         <div className="ml-8 relative hidden lg:block max-w-md w-full">
