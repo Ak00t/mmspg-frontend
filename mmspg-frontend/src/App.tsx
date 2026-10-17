@@ -15,9 +15,12 @@ import BranchManagement from './views/admin/BranchManagement';
 import MccManagement from './views/admin/MccManagement';
 import AdminTerminals from './views/admin/AdminTerminals';
 import StaffUsers from './views/admin/StaffUsers';
+import StaffProfile from './views/admin/StaffProfile';
 
 // Merchant Views
 import MerchantDashboard from './views/merchant/Dashboard';
+import ResetPassword from './views/auth/ResetPassword';
+import ForgotPassword from './views/auth/ForgotPassword';
 
 export default function App() {
   return (
@@ -29,6 +32,8 @@ export default function App() {
 
         {/* Default Redirect to Login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+  <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Protected Admin Routes */}
         <Route path="/admin" element={<ProtectedRoute />}>
@@ -39,6 +44,7 @@ export default function App() {
             <Route path="mcc-configuration" element={<MccManagement />} /> {/* Note: ရေးထုံးပြင်ထားသည် */}
             <Route path="terminals" element={<AdminTerminals />} />
             <Route path="staff-users" element={<StaffUsers />} />
+            <Route path="profile" element={<StaffProfile />} />
           </Route>
         </Route>
 

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit, ShieldAlert, X, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Edit, ShieldAlert, X, AlertTriangle, RefreshCw } from 'lucide-react'; // 🔴 RefreshCw ကို ထပ်ထည့်ထားပါသည်
 
 interface Terminal {
-  // 🔴 number အစား string ဟု ပြောင်းပါ (UUID ကို လက်ခံရန်)
   terminalId: string;
   terminalCode: string; 
   terminalName: string; 
@@ -67,13 +66,11 @@ export default function AdminTerminals() {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      // Fetch Merchants
       const merRes = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (merRes.ok) setMerchants(await merRes.json());
 
-      // Fetch Branches
       const braRes = await fetch('http://127.0.0.1:8004/api/v1/admin/branches', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -83,7 +80,6 @@ export default function AdminTerminals() {
     }
   };
 
-  // 🔴 ၁။ Provision New Terminal Function
   const handleProvisionSubmit = async () => {
     if (!newTerminal.merchantId || !newTerminal.terminalName || !newTerminal.terminalType) {
       alert("Please fill in all required fields.");
@@ -91,7 +87,6 @@ export default function AdminTerminals() {
     }
     const token = localStorage.getItem('token');
     try {
-      // 🔴 ဤနေရာတွင် /provision ဟု အတိအကျ ထည့်ပေးလိုက်ပါ
       const response = await fetch('http://127.0.0.1:8004/api/v1/admin/terminals/provision', {
         method: 'POST',
         headers: {
@@ -104,6 +99,9 @@ export default function AdminTerminals() {
         fetchTerminals();
         setIsAddModalOpen(false);
         setNewTerminal({ merchantId: '', branchId: '', terminalName: '', terminalType: 'PHYSICAL_POS', terminalCode: '' });
+        
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert('Terminal provisioned successfully!');
       } else {
         alert('Failed to provision terminal.');
       }
@@ -112,7 +110,6 @@ export default function AdminTerminals() {
     }
   };
 
-  // 🔴 ၂။ Edit Terminal Function
   const handleSaveEdit = async () => {
     if (!editingTerminal) return;
     const token = localStorage.getItem('token');
@@ -132,6 +129,9 @@ export default function AdminTerminals() {
         setTerminals(terminals.map(t => t.terminalId === editingTerminal.terminalId ? editingTerminal : t));
         setIsEditModalOpen(false);
         setEditingTerminal(null);
+        
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert('Terminal updated successfully!');
       } else {
         alert('Failed to update terminal.');
       }
@@ -140,7 +140,6 @@ export default function AdminTerminals() {
     }
   };
 
-  // 🔴 ၃။ Suspend (Ban) Terminal Function
   const handleSuspendSubmit = async () => {
     if (!suspendingTerminal) return;
     const token = localStorage.getItem('token');
@@ -158,11 +157,40 @@ export default function AdminTerminals() {
         setIsSuspendModalOpen(false);
         setSuspendingTerminal(null);
         setSuspendReason('');
+        
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert('Terminal suspended successfully!');
       } else {
         alert('Failed to suspend terminal.');
       }
     } catch (error) {
       console.error('Error suspending terminal:', error);
+    }
+  };
+
+  // 🔴 အသစ်ထပ်ထည့်ထားသော Reactivate Function
+  const handleReactivate = async (id: string) => {
+    if (!window.confirm("Are you sure you want to reactivate this terminal?")) return;
+    const token = localStorage.getItem('token');
+    try {
+      // ⚠️ မှတ်ချက်: Backend API လမ်းကြောင်းသည် သင်ရေးထားသော လမ်းကြောင်းအမှန်ဖြစ်ရန် လိုအပ်ပါသည်။ (ဥပမာ: /reactivate သို့မဟုတ် /unsuspend)
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/terminals/${id}/reactivate`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        // အောင်မြင်ပါက ဇယားတွင် Status ကို ONLINE ဟု ချက်ချင်းပြောင်းပေးမည်
+        setTerminals(terminals.map(t => t.terminalId === id ? { ...t, status: 'ONLINE' } : t));
+        
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert('Terminal reactivated successfully!');
+      } else {
+        alert('Failed to reactivate terminal.');
+      }
+    } catch (error) {
+      console.error('Error reactivating terminal:', error);
     }
   };
 
@@ -253,15 +281,25 @@ export default function AdminTerminals() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        {/* Suspend Icon Button */}
-                        <button 
-                          onClick={() => {
-                            setSuspendingTerminal(terminal);
-                            setIsSuspendModalOpen(true);
-                          }}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Suspend">
-                          <ShieldAlert className="h-4 w-4" />
-                        </button>
+                        
+                        {/* 🔴 Status ပေါ်မူတည်၍ ခလုတ်ပြောင်းလဲပြသခြင်း */}
+                        {terminal.status === 'SUSPENDED' ? (
+                          <button 
+                            onClick={() => handleReactivate(terminal.terminalId)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reactivate">
+                            <RefreshCw className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => {
+                              setSuspendingTerminal(terminal);
+                              setIsSuspendModalOpen(true);
+                            }}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Suspend">
+                            <ShieldAlert className="h-4 w-4" />
+                          </button>
+                        )}
+                        
                         {/* Edit Button */}
                         <button 
                           onClick={() => {
@@ -288,7 +326,7 @@ export default function AdminTerminals() {
         </div>
       </div>
 
-      {/* 🔴 Provision New Terminal Modal */}
+      {/* Provision New Terminal Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -324,15 +362,9 @@ export default function AdminTerminals() {
                   <option value="">Select a Branch...</option>
                   {branches
                     .filter(b => {
-                      // Merchant မရွေးရသေးပါက အားလုံးပြမည်
                       if (!newTerminal.merchantId) return true; 
-                      
-                      // Backend မှ ပြန်လာသော data တွင် merchant ID ပါ/မပါ စစ်ဆေးမည်
                       const bMerchantId = b.merchantId || (b.merchant && b.merchant.id) || b.merchant_id;
-                      
-                      // အကယ်၍ Backend က merchantId လုံးဝမပို့ပေးပါက (Filter လုပ်၍မရသဖြင့်) အားလုံးကို ပေါ်စေမည်
                       if (!bMerchantId) return true; 
-                      
                       return String(bMerchantId) === String(newTerminal.merchantId);
                     })
                     .map((b, i) => (
@@ -392,7 +424,7 @@ export default function AdminTerminals() {
         </div>
       )}
 
-      {/* 🔴 Edit Terminal Info Modal */}
+      {/* Edit Terminal Info Modal */}
       {isEditModalOpen && editingTerminal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -442,7 +474,7 @@ export default function AdminTerminals() {
         </div>
       )}
 
-      {/* 🔴 Suspend Terminal Modal */}
+      {/* Suspend Terminal Modal */}
       {isSuspendModalOpen && suspendingTerminal && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">

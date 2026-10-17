@@ -116,7 +116,15 @@ export default function Login() {
               </label>
             </div>
             <div className="text-sm">
-              <a href="#" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
+              {/* 🔴 href အစား onClick ဖြင့် navigate ကို အသုံးပြုထားပါသည် */}
+              <a 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault(); // # ကြောင့် စာမျက်နှာခုန်ခြင်းကို တားပေးသည်
+                  navigate('/forgot-password');
+                }}
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors cursor-pointer"
+              >
                 Forgot password?
               </a>
             </div>
