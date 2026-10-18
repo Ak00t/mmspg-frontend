@@ -20,9 +20,9 @@ export default function BranchManagement() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
 
-  // 🔴 Add Modal အတွက် State အသစ်များ
+  // Add Modal အတွက် State အသစ်များ
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [merchants, setMerchants] = useState<any[]>([]); // Merchant list သိမ်းရန်
+  const [merchants, setMerchants] = useState<any[]>([]); 
   const [newBranch, setNewBranch] = useState({
     merchantId: '',
     branchCode: '',
@@ -34,7 +34,7 @@ export default function BranchManagement() {
 
   useEffect(() => {
     fetchBranches();
-    fetchMerchants(); // 🔴 Component တက်လာလျှင် Merchant များကိုပါ ကြိုတင်လှမ်းခေါ်မည်
+    fetchMerchants(); 
   }, []);
 
   const fetchBranches = async () => {
@@ -69,7 +69,6 @@ export default function BranchManagement() {
     }
   };
 
-  // 🔴 Merchant စာရင်းများကို Dropdown တွင်ပြရန် လှမ်းခေါ်မည့် Function
   const fetchMerchants = async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -86,7 +85,6 @@ export default function BranchManagement() {
     }
   };
 
-  // 🔴 Branch အသစ်ကို Backend သို့ လှမ်းပို့မည့် Function
   const handleAddSubmit = async () => {
     if (!newBranch.merchantId || !newBranch.branchCode || !newBranch.branchName) {
       alert("Merchant, Branch Code, and Branch Name are required.");
@@ -106,10 +104,12 @@ export default function BranchManagement() {
 
       if (response.ok) {
         setIsAddModalOpen(false);
-        // Form ကို ပြန်လွတ်အောင် ရှင်းမည်
         setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
-        // Branch အသစ်ပါဝင်လာစေရန် ဇယားကို ပြန်ခေါ်မည်
         fetchBranches(); 
+        
+        // 🔴 Trigger real-time notification
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert("Branch added successfully!"); 
       } else {
         const errorData = await response.json().catch(() => ({}));
         alert(`Failed to add branch: ${errorData.error || 'Unknown error'}`);
@@ -127,7 +127,7 @@ export default function BranchManagement() {
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/branches/${branchId}/status`, { // URL အဟောင်းတွင် ?status= ဖြုတ်ထားပြီးဖြစ်သည်
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/branches/${branchId}/status`, { 
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -136,6 +136,9 @@ export default function BranchManagement() {
 
       if (response.ok) {
         setBranches(branches.map(b => b.branchId === branchId ? { ...b, status: newStatus } : b));
+        
+        // 🔴 Trigger real-time notification
+        window.dispatchEvent(new Event('refreshNotifications'));
       } else {
         alert('Failed to update branch status.');
       }
@@ -171,6 +174,10 @@ export default function BranchManagement() {
         setBranches(branches.map(b => b.branchId === editingBranch.branchId ? editingBranch : b));
         setIsEditModalOpen(false);
         setEditingBranch(null);
+        
+        // 🔴 Trigger real-time notification
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert('Branch updated successfully!');
       } else {
         alert('Failed to update branch details.');
       }
@@ -193,7 +200,6 @@ export default function BranchManagement() {
           <h1 className="text-2xl font-bold text-slate-800">Branch Management</h1>
           <p className="text-sm text-slate-500 mt-1">Manage merchant branches and locations here.</p>
         </div>
-        {/* 🔴 Add Branch ခလုတ်တွင် Modal ပွင့်ရန် ချိတ်ဆက်ထားပါသည် */}
         <button 
           onClick={() => setIsAddModalOpen(true)}
           className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
@@ -293,7 +299,7 @@ export default function BranchManagement() {
         </div>
       </div>
 
-      {/* 🔴 ၅။ Add New Branch Modal */}
+      {/* Add New Branch Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -308,7 +314,6 @@ export default function BranchManagement() {
             </div>
             
             <div className="p-6 space-y-4">
-              {/* Parent Merchant Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Parent Merchant</label>
                 <select 
@@ -320,11 +325,9 @@ export default function BranchManagement() {
                   {merchants && merchants.length > 0 ? (
                     merchants.map((merchant, index) => (
                       <option 
-                        // Backend က ID ကို id ဟုပေးသည်ဖြစ်စေ merchantId ဟုပေးသည်ဖြစ်စေ အလုပ်လုပ်စေရန်
                         key={merchant.merchantId || merchant.id || index} 
                         value={merchant.merchantId || merchant.id}
                       >
-                        {/* Backend က အမည်ကို businessName (သို့) merchantName (သို့) name မည်သို့ပေးသည်ဖြစ်စေ အလုပ်လုပ်စေရန် */}
                         {merchant.businessName || merchant.merchantName || merchant.name || `Merchant ${index + 1}`}
                       </option>
                     ))
@@ -334,7 +337,6 @@ export default function BranchManagement() {
                 </select>
               </div>
 
-              {/* Branch Code */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Branch Code</label>
                 <input 
@@ -346,7 +348,6 @@ export default function BranchManagement() {
                 />
               </div>
 
-              {/* Branch Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Branch Name</label>
                 <input 
@@ -358,7 +359,6 @@ export default function BranchManagement() {
                 />
               </div>
 
-              {/* Address */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
                 <input 
@@ -371,7 +371,6 @@ export default function BranchManagement() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                {/* City */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
                   <input 
@@ -381,7 +380,6 @@ export default function BranchManagement() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
-                {/* Contact Phone */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label>
                   <input 
@@ -415,7 +413,7 @@ export default function BranchManagement() {
         </div>
       )}
 
-      {/* Edit Branch Modal (ယခင်အတိုင်း) */}
+      {/* Edit Branch Modal */}
       {isEditModalOpen && editingBranch && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -427,7 +425,6 @@ export default function BranchManagement() {
             </div>
             
             <div className="p-6 space-y-4">
-              {/* Merchant Name (Read-only ပြထားသည်) */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Parent Merchant</label>
                 <input 

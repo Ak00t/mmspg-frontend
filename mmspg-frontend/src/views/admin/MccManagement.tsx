@@ -19,7 +19,7 @@ export default function MccConfiguration() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingMcc, setEditingMcc] = useState<MccCode | null>(null);
 
-  // 🔴 Add Modal အတွက် State အသစ်များ
+  // Add Modal အတွက် State အသစ်များ
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newMcc, setNewMcc] = useState({ mccCode: '', mccName: '', description: '' });
 
@@ -60,7 +60,7 @@ export default function MccConfiguration() {
     }
   };
 
-  // 🔴 ၁။ Add အသစ်လုပ်မည့် Function
+  // ၁။ Add အသစ်လုပ်မည့် Function
   const handleAddSubmit = async () => {
     if (!newMcc.mccCode || !newMcc.mccName) {
       alert("MCC Code and Category Name are required.");
@@ -86,6 +86,10 @@ export default function MccConfiguration() {
         // Modal ကို ပိတ်ပြီး Form ကို Reset ပြန်လုပ်မည်
         setIsAddModalOpen(false);
         setNewMcc({ mccCode: '', mccName: '', description: '' });
+
+        // 🔴 Trigger real-time notification
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert('MCC Code added successfully!');
       } else {
         alert('Failed to add new MCC.');
       }
@@ -99,6 +103,7 @@ export default function MccConfiguration() {
     setIsEditModalOpen(true);
   };
 
+  // ၂။ Edit လုပ်မည့် Function
   const handleSaveEdit = async () => {
     if (!editingMcc) return;
     const token = localStorage.getItem('token');
@@ -121,6 +126,10 @@ export default function MccConfiguration() {
         setMccCodes(mccCodes.map(m => m.id === editingMcc.id ? editingMcc : m));
         setIsEditModalOpen(false);
         setEditingMcc(null);
+
+        // 🔴 Trigger real-time notification
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert('MCC Code updated successfully!');
       } else {
         alert('Failed to update MCC details.');
       }
@@ -129,6 +138,7 @@ export default function MccConfiguration() {
     }
   };
 
+  // ၃။ Delete လုပ်မည့် Function
   const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this MCC code?')) return;
     
@@ -144,6 +154,10 @@ export default function MccConfiguration() {
 
       if (response.ok) {
         setMccCodes(mccCodes.filter(m => m.id !== id));
+
+        // 🔴 Trigger real-time notification
+        window.dispatchEvent(new Event('refreshNotifications'));
+        alert('MCC Code deleted successfully!');
       } else {
         alert('Failed to delete MCC code.');
       }
@@ -165,7 +179,6 @@ export default function MccConfiguration() {
           <h1 className="text-2xl font-bold text-slate-800">MCC Configuration</h1>
           <p className="text-sm text-slate-500 mt-1">Manage merchant category codes here.</p>
         </div>
-        {/* 🔴 ၂။ Add MCC ခလုတ်တွင် Modal ပွင့်ရန် ချိတ်ဆက်ထားပါသည် */}
         <button 
           onClick={() => setIsAddModalOpen(true)}
           className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
@@ -260,7 +273,7 @@ export default function MccConfiguration() {
         </div>
       </div>
 
-      {/* 🔴 ၃။ Add New MCC Modal (ပုံထဲက Design အတိုင်း) */}
+      {/* Add New MCC Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
@@ -333,7 +346,7 @@ export default function MccConfiguration() {
         </div>
       )}
 
-      {/* Edit MCC Modal (ယခင်အတိုင်း) */}
+      {/* Edit MCC Modal */}
       {isEditModalOpen && editingMcc && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">

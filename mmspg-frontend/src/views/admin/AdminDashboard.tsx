@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // 🔴 Added
 import { Clock, Activity, Monitor, Users, FileText, CheckCircle } from 'lucide-react';
 
 interface RecentRequest {
@@ -18,6 +19,7 @@ interface DashboardData {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate(); // 🔴 Added
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,6 @@ export default function AdminDashboard() {
       }
 
       try {
-        // 🔴 Backend ကို မပြင်ဘဲ၊ ရှိပြီးသား Merchant API ကိုသာ လှမ်းခေါ်၍ Data အစစ်များကို ယူပါမည်
         const response = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
           method: 'GET',
           headers: {
@@ -47,21 +48,14 @@ export default function AdminDashboard() {
 
         const merchants = await response.json();
 
-        // 🟢 ရလာသော Merchant အစစ်များပေါ်မူတည်၍ React တွင် တွက်ချက်ပါမည်
-
-        // ၁။ PENDING ဖြစ်နေသော Merchant အရေအတွက်ကို ရှာခြင်း
         const pendingCount = merchants.filter((m: any) => m.status === 'PENDING').length;
-
-        // ၂။ ACTIVE ဖြစ်နေသော Merchant အရေအတွက်ကို ရှာခြင်း
         const activeCount = merchants.filter((m: any) => m.status === 'ACTIVE').length;
 
-        // ၃။ နောက်ဆုံးဝင်ထားသော (အသစ်ဆုံး) Merchant ၅ ခုကို ရှာထုတ်ခြင်း
         const sortedMerchants = [...merchants].sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         const top5Merchants = sortedMerchants.slice(0, 5);
 
-        // ၄။ Table တွင်ပြရန် Data ပုံစံပြောင်းခြင်း
         const recentRequests = top5Merchants.map((m: any) => ({
           requestId: m.merchantCode || "N/A",
           merchantName: m.merchantName || "Unknown",
@@ -70,12 +64,11 @@ export default function AdminDashboard() {
           status: m.status || "PENDING"
         }));
 
-        // ၅။ တွက်ချက်ထားသော Data များကို State ထဲသို့ ထည့်ခြင်း
         setDashboardData({
           pendingApprovals: pendingCount,
-          totalVolume: "MMK 0", // ငွေကြေးပမာဏ API မရှိသေးသဖြင့် ယာယီ 0 ပြထားပါမည်
+          totalVolume: "MMK 0", 
           activeGateways: activeCount,
-          internalStaff: 0, // Staff API သီးသန့်လှမ်းခေါ်မှ ရမည်ဖြစ်၍ ယာယီ 0 ပြထားပါမည်
+          internalStaff: 0, 
           recentRequests: recentRequests
         });
 
@@ -195,7 +188,11 @@ export default function AdminDashboard() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="inline-flex items-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors">
+                      {/* 🔴 onClick ကို ဤနေရာတွင် ချိတ်ဆက်ထားပါသည် */}
+                      <button 
+                        onClick={() => navigate('/admin/merchant-approvals')}
+                        className="inline-flex items-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
+                      >
                         <CheckCircle className="h-4 w-4 mr-1.5" />
                         Review
                       </button>

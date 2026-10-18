@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit, Trash2, Power, Shield } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Power, Shield, X } from 'lucide-react';
 
-// ၁။ Spring Boot မှ ပြန်ပို့မည့် JSON (camelCase) အတိုင်း Interface ကို ပြင်ဆင်ခြင်း
 interface StaffUser {
-  staffId: string;       // Spring Boot မှ ဤအတိုင်းလာပါမည်
+  id: string;            
   username?: string;
-  fullName: string;      // full_name အစား fullName
+  name: string;          
   email: string;
   role: string;
   status: 'ACTIVE' | 'DISABLED';
-  lastLoginAt: string | null; // last_login_at အစား lastLoginAt
+  lastLoginAt: string | null; 
 }
 
 export default function StaffUsers() {
@@ -17,50 +16,180 @@ export default function StaffUsers() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // ၂။ Backend Controller ၏ လမ်းကြောင်းအမှန်သို့ ချိတ်ဆက်ခြင်း
- useEffect(() => {
-    // Port 8080 အစား 8004 သို့ ပြောင်းထားပါသည်
-    fetch('http://127.0.0.1:8004/api/v1/admin/staff/list')
-      .then((response) => response.json())
-      .then((data) => {
-        setUsers(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error fetching staff users:', error);
-        setLoading(false);
-      });
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  // 🔴 ယာယီ Password ကို အလွတ်ထားပေးထားပါသည် (ပုံသေမထည့်တော့ပါ)
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    role: 'SUPPORT',
+    password: '' 
+  });
+
+  useEffect(() => {
+    fetchUsers();
   }, []);
-  const toggleStatus = (id: string) => {
-    // ယာယီ UI အပြောင်းအလဲ
-    setUsers(users.map(user => 
-      user.staffId === id 
-        ? { ...user, status: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' } 
-        : user
-    ));
+
+  const fetchUsers = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/staff-users', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data);
+      }
+    } catch (error) {
+      console.error('Error fetching staff users:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ၃။ ရှာဖွေရာတွင် fullName ကို အသုံးပြုခြင်း
+  const handleAddSubmit = async () => {
+    // 🔴 Password အပါအဝင် အချက်အလက်စုံလင်စွာ ထည့်သွင်းရန် စစ်ဆေးခြင်း
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      alert("Please fill in all required fields, including the password.");
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/staff-users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newUser)
+      });
+
+      if (response.ok) {
+        setIsAddModalOpen(false);
+        setNewUser({ name: '', email: '', role: 'SUPPORT', password: '' });
+        fetchUsers(); 
+
+        window.dispatchEvent(new Event('refreshNotifications'));
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Failed to create user: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error creating user:', error);
+    }
+  };
+
+  const handleDeleteClick = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this staff user? This action cannot be undone.")) return;
+    
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/staff-users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setUsers(users.filter(u => u.id !== id));
+      } else {
+        alert("Failed to delete staff user. Please try again.");
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+    }
+  };
+
+  const openEditModal = (user: StaffUser) => {
+    setEditingUser({ ...user });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingUser) return;
+    const token = localStorage.getItem('token');
+
+    try {
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/staff-users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          fullName: editingUser.name, 
+          email: editingUser.email,
+          role: editingUser.role
+        })
+      });
+
+      if (response.ok) {
+        setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
+        setIsEditModalOpen(false);
+        setEditingUser(null);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Failed to update user: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
+    }
+  };
+
+  const toggleStatus = async (id: string) => {
+    if (!window.confirm("Are you sure you want to change this user's status?")) return;
+
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/staff-users/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setUsers(users.map(user => 
+          user.id === id 
+            ? { ...user, status: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' } 
+            : user
+        ));
+      } else {
+        alert("Failed to toggle status.");
+      }
+    } catch (error) {
+      console.error('Error toggling status:', error);
+    }
+  };
+
   const filteredUsers = users.filter(user => 
-    (user.fullName && user.fullName.toLowerCase().includes(searchTerm.toLowerCase())) || 
+    (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) || 
     (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Staff Users</h1>
           <p className="text-sm text-slate-500 mt-1">Manage admin access and roles</p>
         </div>
-        <button className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add Staff User
         </button>
       </div>
 
-      {/* Search Bar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center">
         <div className="relative w-full max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -76,7 +205,6 @@ export default function StaffUsers() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
@@ -94,14 +222,14 @@ export default function StaffUsers() {
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
                 {filteredUsers.map((user) => (
-                  <tr key={user.staffId} className="hover:bg-slate-50 transition-colors">
+                  <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold uppercase">
-                          {user.fullName ? user.fullName.charAt(0) : '?'}
+                          {user.name ? user.name.charAt(0) : '?'}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-slate-900">{user.fullName}</div>
+                          <div className="text-sm font-medium text-slate-900">{user.name}</div>
                           <div className="text-sm text-slate-500">{user.email}</div>
                         </div>
                       </div>
@@ -122,13 +250,12 @@ export default function StaffUsers() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {/* Spring Boot မှလာသော နေ့စွဲပုံစံကို လိုအပ်သလို Format လုပ်နိုင်ပါသည် */}
                       {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <button 
-                          onClick={() => toggleStatus(user.staffId)}
+                          onClick={() => toggleStatus(user.id)}
                           className={`p-1.5 rounded-lg transition-colors ${
                             user.status === 'ACTIVE'
                               ? 'text-amber-500 hover:bg-amber-50'
@@ -138,10 +265,10 @@ export default function StaffUsers() {
                         >
                           <Power className="h-4 w-4" />
                         </button>
-                        <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                        <button onClick={() => openEditModal(user)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                        <button onClick={() => handleDeleteClick(user.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -160,6 +287,160 @@ export default function StaffUsers() {
           )}
         </div>
       </div>
+
+      {/* Add New Staff User Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800">Create Staff User</h2>
+              <button 
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setNewUser({ name: '', email: '', role: 'SUPPORT', password: '' });
+                }} 
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <input 
+                  type="text" 
+                  value={newUser.name} 
+                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="e.g. Alice Smith"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                <input 
+                  type="email" 
+                  value={newUser.email} 
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="e.g. alice@bank.com"
+                />
+              </div>
+
+              {/* 🔴 Password ထည့်ရန် အကွက်အသစ် */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Temporary Password</label>
+                <input 
+                  type="password" 
+                  value={newUser.password} 
+                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Enter temporary password"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">System Role</label>
+                <select 
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                >
+                  <option value="ADMIN">Administrator</option>
+                  <option value="SUPPORT">Support Specialist</option>
+                  <option value="AUDITOR">Auditor</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">Determines module access and approval limits.</p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+              <button 
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setNewUser({ name: '', email: '', role: 'SUPPORT', password: '' });
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAddSubmit}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Create User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff User Modal */}
+      {isEditModalOpen && editingUser && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800">Edit Staff User</h2>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <input 
+                  type="text" 
+                  value={editingUser.name} 
+                  onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                <input 
+                  type="email" 
+                  value={editingUser.email} 
+                  onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">System Role</label>
+                <select 
+                  value={editingUser.role}
+                  onChange={(e) => setEditingUser({...editingUser, role: e.target.value})}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                >
+                  <option value="ADMIN">Administrator</option>
+                  <option value="SUPPORT">Support</option>
+                  <option value="AUDITOR">Auditor</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">Determines module access and approval limits.</p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+              <button 
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveEdit}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit, Ban, X, Search, Plus, Loader2 } from 'lucide-react';
+import { Edit, Ban, X, Search, Plus, Loader2, Check, RefreshCw } from 'lucide-react';
 
 interface Merchant {
   id: string;
@@ -10,9 +10,8 @@ interface Merchant {
 }
 
 export default function MerchantApprovals() {
- 
   const [merchants, setMerchants] = useState<Merchant[]>([]);
-   const userRole = localStorage.getItem('userRole') || '';
+  const userRole = localStorage.getItem('userRole') || '';
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   
@@ -26,7 +25,7 @@ export default function MerchantApprovals() {
   const [editRegNum, setEditRegNum] = useState('');
   const [suspendReason, setSuspendReason] = useState('');
 
-  // 🔴 ပြင်ဆင်ထားသော Add Form State
+  // Add Form State
   const [addFormData, setAddFormData] = useState({
     businessName: '',
     merchantCode: '',
@@ -134,6 +133,7 @@ export default function MerchantApprovals() {
       ]);
 
       closeModal();
+      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
       alert("Merchant registered successfully!");
       
     } catch (error: any) {
@@ -158,6 +158,8 @@ export default function MerchantApprovals() {
         prevMerchants.map(m => m.id === selectedMerchant.id ? { ...m, merchantName: editName, regNumber: editRegNum } : m)
       );
       closeModal();
+      
+      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
       alert("Merchant updated successfully!");
     } catch (error) {
       console.error("Update error:", error);
@@ -181,10 +183,90 @@ export default function MerchantApprovals() {
         prevMerchants.map(m => m.id === selectedMerchant.id ? { ...m, status: 'SUSPENDED' } : m)
       );
       closeModal();
+      
+      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
       alert("Merchant suspended successfully!");
     } catch (error) {
       console.error("Suspend error:", error);
       alert("Error suspending merchant.");
+    }
+  };
+
+  // ----------------------------------------------------------------------
+  // Merchant Action Handlers (Approve, Reject, Reactivate)
+  // ----------------------------------------------------------------------
+  const handleApprove = async (id: string) => {
+    if (!window.confirm("Are you sure you want to approve this merchant?")) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${id}/approve`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to approve merchant');
+
+      setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'ACTIVE' } : m));
+      
+      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      alert("Merchant approved successfully!");
+    } catch (error) {
+      console.error("Approve error:", error);
+      alert("Error approving merchant.");
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    const reason = window.prompt("Please enter a reason for rejection:");
+    if (reason === null) return; 
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${id}/reject`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ reason: reason || 'No reason provided' })
+      });
+
+      if (!response.ok) throw new Error('Failed to reject merchant');
+
+      setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'REJECTED' } : m));
+      
+      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      alert("Merchant rejected successfully!");
+    } catch (error) {
+      console.error("Reject error:", error);
+      alert("Error rejecting merchant.");
+    }
+  };
+
+  const handleReactivate = async (id: string) => {
+    if (!window.confirm("Are you sure you want to reactivate this suspended merchant?")) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${id}/status?status=ACTIVE`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ reason: "Reactivated by Admin" })
+      });
+
+      if (!response.ok) throw new Error('Failed to reactivate merchant');
+
+      setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'ACTIVE' } : m));
+      
+      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      alert("Merchant reactivated successfully!");
+    } catch (error) {
+      console.error("Reactivate error:", error);
+      alert("Error reactivating merchant.");
     }
   };
 
@@ -198,14 +280,13 @@ export default function MerchantApprovals() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-slate-800">Merchant Approvals</h1>
         
-        {/* 🔴 ADMIN သို့မဟုတ် SUPPORT ဖြစ်မှသာ Add Merchant ခလုတ်ကို မြင်ရမည် */}
+        {/* Only ADMIN or SUPPORT can see Add Merchant button */}
         {(userRole === 'ADMIN' || userRole === 'SUPPORT') && (
           <button onClick={openAddModal} className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
             Add Merchant
           </button>
         )}
-        
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -257,13 +338,37 @@ export default function MerchantApprovals() {
                       {merchant.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right space-x-3">
-                    <button onClick={() => handleEditClick(merchant)} className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm">
-                      <Edit className="h-4 w-4 mr-1" />
+                  <td className="px-6 py-4 text-right space-x-3 flex justify-end items-center">
+                    {/* Edit button is always shown */}
+                    <button onClick={() => handleEditClick(merchant)} className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm p-1.5 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                      <Edit className="h-4 w-4" />
                     </button>
-                    <button onClick={() => handleSuspendClick(merchant)} className="inline-flex items-center px-3 py-1.5 border border-amber-200 bg-amber-50 text-amber-600 rounded-md hover:bg-amber-100 font-medium text-sm transition-colors">
-                      <Ban className="h-4 w-4 mr-1.5" /> Suspend
-                    </button>
+
+                    {/* PENDING: Show Approve / Reject */}
+                    {merchant.status === 'PENDING' && (
+                      <>
+                        <button onClick={() => handleApprove(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-green-200 bg-green-50 text-green-700 rounded-md hover:bg-green-100 font-medium text-sm transition-colors" title="Approve Merchant">
+                          <Check className="h-4 w-4 mr-1.5" /> Approve
+                        </button>
+                        <button onClick={() => handleReject(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 rounded-md hover:bg-red-100 font-medium text-sm transition-colors" title="Reject Merchant">
+                          <X className="h-4 w-4 mr-1.5" /> Reject
+                        </button>
+                      </>
+                    )}
+
+                    {/* ACTIVE: Show Suspend */}
+                    {merchant.status === 'ACTIVE' && (
+                      <button onClick={() => handleSuspendClick(merchant)} className="inline-flex items-center px-3 py-1.5 border border-amber-200 bg-amber-50 text-amber-600 rounded-md hover:bg-amber-100 font-medium text-sm transition-colors" title="Suspend Merchant">
+                        <Ban className="h-4 w-4 mr-1.5" /> Suspend
+                      </button>
+                    )}
+
+                    {/* SUSPENDED: Show Reactivate */}
+                    {merchant.status === 'SUSPENDED' && (
+                      <button onClick={() => handleReactivate(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 font-medium text-sm transition-colors" title="Reactivate Merchant">
+                        <RefreshCw className="h-4 w-4 mr-1.5" /> Reactivate
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
@@ -274,7 +379,7 @@ export default function MerchantApprovals() {
         </table>
       </div>
 
-      {/* 🔴 ADD NEW MERCHANT MODAL */}
+      {/* ADD NEW MERCHANT MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden">
