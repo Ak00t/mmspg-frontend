@@ -227,7 +227,10 @@ export default function Header() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('mmspg_token');
     localStorage.removeItem('userId');
+    localStorage.removeItem('merchantId');
+    localStorage.removeItem('mmspg_merchant_id');
     localStorage.removeItem('userName');
     localStorage.removeItem('userRole');
     localStorage.removeItem('userAvatar');
@@ -258,7 +261,9 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm z-10">
       <div className="flex items-center flex-1">
-        <h2 className="text-xl font-semibold text-slate-800 hidden md:block">Admin Portal</h2>
+        <h2 className="text-xl font-semibold text-slate-800 hidden md:block">
+          {userRole === 'MERCHANT' ? 'Merchant Portal' : userRole === 'SUPPORT' ? 'Support Portal' : 'Admin Portal'}
+        </h2>
         
         {/* Search bar placeholder */}
         <div className="ml-8 relative hidden lg:block max-w-md w-full">
