@@ -258,16 +258,16 @@ export default function StaffProfile() {
                 />
               </div>
 
-              {/* User Identity Details */}
-              <div className="flex-1 text-center sm:text-left space-y-2">
+              <div className="flex-1 min-w-0 text-center sm:text-left space-y-2">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                  {userRole}
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span className="truncate">{userRole}</span>
                 </div>
-                <h2 className="text-xl font-bold text-slate-900">{userName}</h2>
+                <h2 className="text-xl font-bold text-slate-900 truncate">{userName}</h2>
                 <div className="flex items-center justify-center sm:justify-start gap-1.5 text-sm text-slate-500">
                   <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="truncate">{userEmail}</span>
+                  {/* 💡 truncate အပြင် block ကိုပါ ထည့်ပေးပါ */}
+                  <span className="truncate block">{userEmail}</span>
                 </div>
               </div>
             </div>

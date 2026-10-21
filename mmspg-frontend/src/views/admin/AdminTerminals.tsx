@@ -44,7 +44,7 @@ export default function AdminTerminals() {
     fetchMerchantsAndBranches();
   }, []);
 
-  const fetchTerminals = async () => {
+ const fetchTerminals = async () => {
     const token = localStorage.getItem('token'); 
     if (!token) {
         setLoading(false);
@@ -57,7 +57,16 @@ export default function AdminTerminals() {
       if (response.ok) {
         const data = await response.json();
         const items = Array.isArray(data) ? data : (data.content || data.data || []);
-        setTerminals(items);
+        
+        // 💡 Admin Terminal အတွက် ပြင်ဆင်ချက် - ဖန်တီးခဲ့သောအချိန် (createdAt) ကိုကြည့်ပြီး အသစ်ဆုံး Terminal ကို အပေါ်ဆုံးသို့ပို့ပေးခြင်း
+        const sortedTerminals = [...items].sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          return dateB - dateA;
+        });
+        
+        // သာမန် items အစား sortedTerminals ကို အသုံးပြုပါမည်
+        setTerminals(sortedTerminals);
       } else {
         console.error(`Failed to fetch terminals: ${response.status} ${response.statusText}`);
         setTerminals([]);

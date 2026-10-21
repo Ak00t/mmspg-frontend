@@ -32,7 +32,7 @@ export default function ProfilePictureUpload({
     fileInputRef.current?.click();
   };
 
-  // Handle file selection and generate real-time Base64 preview
+ // Handle file selection and generate real-time Base64 preview
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -58,13 +58,11 @@ export default function ProfilePictureUpload({
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = reader.result as string;
-      setPreviewUrl(base64);
+      setPreviewUrl(base64); // Preview စက်ဝိုင်းထဲမှာပြဖို့သာ update လုပ်မည်
       setSelectedFile(file);
-      // Immediately reflect selected image in localStorage and navbar
-      localStorage.setItem('adminProfileImage', base64);
-      localStorage.setItem('userAvatar', base64);
-      window.dispatchEvent(new Event('profileUpdated'));
-      window.dispatchEvent(new Event('avatarUpdated'));
+      
+      // ဖယ်ရှားလိုက်သောအရာများ: localStorage ထဲသိမ်းခြင်းနှင့် dispatchEvents များ
+      // ၎င်းတို့ကို Save Photo နှိပ်ပြီး upload အောင်မြင်မှသာ handleImageUpload ထဲတွင် လုပ်ဆောင်ရပါမည်။
     };
     reader.onerror = () => {
       setError('Failed to read image file.');

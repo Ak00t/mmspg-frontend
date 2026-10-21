@@ -58,7 +58,7 @@ export default function MerchantApprovals() {
         const data = await response.json();
         const dataArray = Array.isArray(data) ? data : (data.content || []);
 
-        const realMerchants = dataArray
+       const realMerchants = dataArray
           .filter((m: any) => m !== null)
           .map((m: any) => ({
             id: m?.merchantId || m?.id || "N/A",
@@ -68,7 +68,8 @@ export default function MerchantApprovals() {
             status: m?.status || "PENDING"
           }));
 
-        setMerchants(realMerchants);
+        // 💡 ရလာသော Merchant စာရင်းကို အသစ်ဆုံးအပေါ်ရောက်ရန် ပြောင်းပြန်လှန်ပေးခြင်း
+        setMerchants(realMerchants.reverse()); 
       } catch (error) {
         console.error("Error fetching real data:", error);
       } finally {

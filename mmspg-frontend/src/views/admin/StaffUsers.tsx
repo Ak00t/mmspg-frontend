@@ -5,11 +5,12 @@ import { Search, Plus, Edit, Trash2, Power, Shield, X } from 'lucide-react';
 interface StaffUser {
   id: string;            
   username?: string;
-  name: string;          
+  name: string;          // 💡 Backend မှ ပို့လာသော နာမည် Key နှင့် တိုက်ဆိုင်စေရန် name ဟု သုံးထားပါသည်
   email: string;
   role: string;
   status: 'ACTIVE' | 'DISABLED';
   lastLoginAt: string | null; 
+  createdAt?: string;
 }
 
 export default function StaffUsers() {
@@ -33,7 +34,6 @@ export default function StaffUsers() {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
-  // 🔴 ယာယီ Password ကို အလွတ်ထားပေးထားပါသည် (ပုံသေမထည့်တော့ပါ)
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -55,7 +55,15 @@ export default function StaffUsers() {
       });
       if (response.ok) {
         const data = await response.json();
-        setUsers(data);
+        const items = Array.isArray(data) ? data : (data.content || data.data || []);
+        
+        // 💡 ID သို့မဟုတ် Data များကို နှိုင်းယှဉ်၍ အသစ်ဆုံးကို အပေါ်ဆုံးတင်ရန် Sort လုပ်ခြင်း
+        const sortedUsers = [...items].sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          return dateB - dateA; // အသစ်ဆုံးက အပေါ်ဆုံးသို့ ရောက်မည်
+        });
+        setUsers(sortedUsers);
       }
     } catch (error) {
       console.error('Error fetching staff users:', error);
@@ -65,7 +73,6 @@ export default function StaffUsers() {
   };
 
   const handleAddSubmit = async () => {
-    // 🔴 Password အပါအဝင် အချက်အလက်စုံလင်စွာ ထည့်သွင်းရန် စစ်ဆေးခြင်း
     if (!newUser.name || !newUser.email || !newUser.password) {
       alert("Please fill in all required fields, including the password.");
       return;
@@ -83,11 +90,17 @@ export default function StaffUsers() {
       });
 
       if (response.ok) {
+        // 💡 Backend မှ ပြန်လည်ပို့ပေးလိုက်သော User အသစ်ကို ယူပါမည်
+        const createdUser = await response.json();
+
+        // 💡 ဇယားရှိ Data အဟောင်းများကို မပျောက်စေဘဲ အသစ်ကို ထိပ်ဆုံးသို့ ချက်ချင်း ပေါင်းထည့်မည်
+        setUsers(prevUsers => [createdUser, ...prevUsers]);
+
         setIsAddModalOpen(false);
         setNewUser({ name: '', email: '', role: 'SUPPORT', password: '' });
-        fetchUsers(); 
 
         window.dispatchEvent(new Event('refreshNotifications'));
+        alert("Staff user created successfully!");
       } else {
         const errorData = await response.json().catch(() => ({}));
         alert(`Failed to create user: ${errorData.error || 'Unknown error'}`);
@@ -136,7 +149,7 @@ export default function StaffUsers() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          fullName: editingUser.name, 
+          name: editingUser.name, 
           email: editingUser.email,
           role: editingUser.role
         })
@@ -146,6 +159,7 @@ export default function StaffUsers() {
         setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
         setIsEditModalOpen(false);
         setEditingUser(null);
+        alert("Staff user updated successfully!");
       } else {
         const errorData = await response.json().catch(() => ({}));
         alert(`Failed to update user: ${errorData.error || 'Unknown error'}`);
@@ -340,7 +354,6 @@ export default function StaffUsers() {
                 />
               </div>
 
-              {/* 🔴 Password ထည့်ရန် အကွက်အသစ် */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Temporary Password</label>
                 <input 

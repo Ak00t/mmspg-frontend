@@ -59,7 +59,12 @@ export default function MccConfiguration() {
       
       const data = await response.json();
       const items = Array.isArray(data) ? data : (data.content || data.data || []);
-      setMccCodes(items);
+      
+      // 💡 ပြင်ဆင်ချက် - Backend မှရလာသော Data များကို ID အကြီးဆုံး (နောက်ဆုံးထည့်ထားသောအရာ) က အပေါ်ဆုံးရောက်စေရန် Sort လုပ်ခြင်း
+      const sortedItems = [...items].sort((a, b) => b.id - a.id);
+      
+      setMccCodes(sortedItems);
+
     } catch (error) {
       console.error('Error fetching MCC codes:', error);
     } finally {
@@ -86,22 +91,29 @@ export default function MccConfiguration() {
         body: JSON.stringify(newMcc)
       });
 
-      if (response.ok) {
-        const createdMcc = await response.json();
-        // UI သို့ Data အသစ်ကို ချက်ချင်းပေါင်းထည့်မည်
-        setMccCodes([...mccCodes, createdMcc]);
-        // Modal ကို ပိတ်ပြီး Form ကို Reset ပြန်လုပ်မည်
-        setIsAddModalOpen(false);
-        setNewMcc({ mccCode: '', mccName: '', description: '' });
-
-        // 🔴 Trigger real-time notification
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('MCC Code added successfully!');
-      } else {
-        alert('Failed to add new MCC.');
+      if (!response.ok) {
+        // 💡 500 Error တက်လျှင် Table အလွတ်မဖြစ်သွားစေရန် setMccCodes([]) ကို ဖြုတ်လိုက်ပါသည်
+        const errorText = await response.json().catch(() => ({}));
+        alert(`Failed to add new MCC. Server Error: ${errorText.error || response.status}`);
+        return;
       }
+      
+      const createdMcc = await response.json();
+      
+      // 💡 ပြင်ဆင်ချက် - Backend မှ ပြန်ပို့သော Data အသစ် (createdMcc) တစ်ခုတည်းကိုသာ ထိပ်ဆုံးသို့ ထည့်ပါ
+      setMccCodes(prevMccCodes => [createdMcc, ...prevMccCodes]);
+      
+      // Modal ကို ပိတ်ပြီး Form ကို Reset ပြန်လုပ်မည်
+      setIsAddModalOpen(false);
+      setNewMcc({ mccCode: '', mccName: '', description: '' });
+
+      // 🔴 Trigger real-time notification
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('MCC Code added successfully!');
+      
     } catch (error) {
       console.error('Error adding MCC:', error);
+      alert('Network error or Server is down!');
     }
   };
 

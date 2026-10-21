@@ -64,7 +64,10 @@ export default function BranchManagement() {
       if (!response.ok) throw new Error('Network response was not ok');
       
       const data = await response.json();
-      setBranches(data);
+      
+      // 💡 နောက်ဆုံးထည့်ထားသော Branch ကို အပေါ်ဆုံးသို့ပို့ရန် Array ကို reverse လုပ်ပေးပါ
+      setBranches(data.reverse()); 
+
     } catch (error) {
       console.error('Error fetching branches:', error);
     } finally {
@@ -189,11 +192,15 @@ export default function BranchManagement() {
     }
   };
 
-  const filteredBranches = branches.filter(branch => 
-    (branch.branchCode && branch.branchCode.toLowerCase().includes(searchTerm.toLowerCase())) || 
-    (branch.branchName && branch.branchName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (branch.merchantName && branch.merchantName.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+ const filteredBranches = branches.filter(branch => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (branch.branchCode && branch.branchCode.toLowerCase().includes(searchLower)) || 
+      (branch.branchName && branch.branchName.toLowerCase().includes(searchLower)) ||
+      (branch.merchantName && branch.merchantName.toLowerCase().includes(searchLower)) ||
+      (branch.city && branch.city.toLowerCase().includes(searchLower)) // 💡 City ကိုပါ ရှာဖွေရန် ထည့်သွင်းထားပါသည်
+    );
+  });
 
   return (
     <div className="space-y-6 relative">
