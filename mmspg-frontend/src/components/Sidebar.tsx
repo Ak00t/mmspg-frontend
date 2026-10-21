@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -9,13 +10,27 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar() {
-  // 🔴 ၁။ LocalStorage မှ လက်ရှိ User ၏ Role ကို ယူမည်
-  const userRole = localStorage.getItem('userRole') || 'ADMIN';
-  
-  // 🔴 ၂။ Role ပေါ်မူတည်၍ လမ်းကြောင်းအစ (Base Path) ကို ခွဲခြားမည်
-  const basePath = userRole === 'SUPPORT' ? '/support' : '/admin';
+  const [userRole, setUserRole] = useState<string>(() => 
+    (localStorage.getItem('userRole') || 'ADMIN').toUpperCase()
+  );
 
-  // 🔴 ၃။ အားလုံးမြင်ရမည့် Menu များကို basePath ဖြင့် ရေးမည်
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      const storedRole = (localStorage.getItem('userRole') || 'ADMIN').toUpperCase();
+      setUserRole(storedRole);
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
+  }, []);
+
+  const basePath = userRole === 'SUPPORT' 
+    ? '/support' 
+    : userRole === 'AUDITOR' 
+    ? '/auditor' 
+    : '/admin';
+
   let sidebarLinks = [];
 
   if (userRole === 'MERCHANT') {
@@ -26,17 +41,26 @@ export default function Sidebar() {
     sidebarLinks = [
       { to: `${basePath}/dashboard`, icon: LayoutDashboard, label: 'Dashboard' },
       { to: `${basePath}/merchant-approvals`, icon: Users, label: 'Merchant Approvals' },
-      { to: `${basePath}/branches`, icon: Building2, label: 'Branch Management' }
+      { to: `${basePath}/branches`, icon: Building2, label: 'Branch Management' },
+      { to: `${basePath}/mcc-configuration`, icon: Settings, label: 'Mcc Management' },
+      { to: `${basePath}/terminals`, icon: CreditCard, label: 'Admin Terminals' }
     ];
 
+    // Only ADMIN role can see and access Staff Users
     if (userRole === 'ADMIN') {
       sidebarLinks.push(
-        { to: `${basePath}/mcc-configuration`, icon: Settings, label: 'Mcc Management' },
-        { to: `${basePath}/terminals`, icon: CreditCard, label: 'Admin Terminals' },
         { to: `${basePath}/staff-users`, icon: UserCog, label: 'Staff Users' }
       );
     }
   }
+
+  const sectionTitle = userRole === 'SUPPORT' 
+    ? 'Support' 
+    : userRole === 'AUDITOR' 
+    ? 'Auditor' 
+    : userRole === 'MERCHANT' 
+    ? 'Merchant' 
+    : 'Administration';
 
   return (
     <aside className="w-64 bg-slate-900 text-white min-h-screen flex flex-col transition-all duration-300 shadow-xl z-20">
@@ -45,7 +69,7 @@ export default function Sidebar() {
       </div>
       <nav className="flex-1 py-6 px-3 space-y-1">
         <div className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-          Administration
+          {sectionTitle}
         </div>
         
         {/* 🔴 ၅။ adminLinks အစား ပြင်ဆင်ထားသော sidebarLinks ကို အသုံးပြုမည် */}

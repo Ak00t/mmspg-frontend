@@ -12,6 +12,9 @@ interface Branch {
 }
 
 export default function BranchManagement() {
+  const rawRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = rawRole.startsWith('ROLE_') ? rawRole.substring(5) : rawRole;
+  const isAuditor = userRole === 'AUDITOR' || userRole.includes('AUDITOR');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -200,12 +203,14 @@ export default function BranchManagement() {
           <h1 className="text-2xl font-bold text-slate-800">Branch Management</h1>
           <p className="text-sm text-slate-500 mt-1">Manage merchant branches and locations here.</p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Branch
-        </button>
+        {!isAuditor && (userRole === 'ADMIN' || userRole === 'SUPPORT') && (
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Branch
+          </button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -271,18 +276,22 @@ export default function BranchManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button 
-                          onClick={() => openEditModal(branch)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleToggleStatus(branch.branchId, branch.status)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title={branch.status === 'ACTIVE' ? 'Disable' : 'Enable'}>
-                          <Power className="h-4 w-4" />
-                        </button>
-                      </div>
+                      {isAuditor ? (
+                        <span className="text-xs text-slate-400 italic">View Only</span>
+                      ) : (
+                        <div className="flex justify-end space-x-2">
+                          <button 
+                            onClick={() => openEditModal(branch)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleToggleStatus(branch.branchId, branch.status)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title={branch.status === 'ACTIVE' ? 'Disable' : 'Enable'}>
+                            <Power className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

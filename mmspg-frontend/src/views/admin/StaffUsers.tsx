@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Search, Plus, Edit, Trash2, Power, Shield, X } from 'lucide-react';
 
 interface StaffUser {
@@ -12,6 +13,17 @@ interface StaffUser {
 }
 
 export default function StaffUsers() {
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+
+  if (userRole !== 'ADMIN') {
+    const target = userRole === 'SUPPORT' 
+      ? '/support/dashboard' 
+      : userRole === 'AUDITOR' 
+      ? '/auditor/dashboard' 
+      : '/admin/dashboard';
+    return <Navigate to={target} replace />;
+  }
+
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

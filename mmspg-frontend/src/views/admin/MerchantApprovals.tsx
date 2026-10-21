@@ -11,7 +11,9 @@ interface Merchant {
 
 export default function MerchantApprovals() {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
-  const userRole = localStorage.getItem('userRole') || '';
+  const rawRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = rawRole.startsWith('ROLE_') ? rawRole.substring(5) : rawRole;
+  const isAuditor = userRole === 'AUDITOR' || userRole.includes('AUDITOR');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   
@@ -280,8 +282,8 @@ export default function MerchantApprovals() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-slate-800">Merchant Approvals</h1>
         
-        {/* Only ADMIN or SUPPORT can see Add Merchant button */}
-        {(userRole === 'ADMIN' || userRole === 'SUPPORT') && (
+        {/* Only ADMIN can see Add Merchant button (hidden for SUPPORT and AUDITOR) */}
+        {userRole === 'ADMIN' && (
           <button onClick={openAddModal} className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
             Add Merchant
@@ -307,9 +309,7 @@ export default function MerchantApprovals() {
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Registration Number</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Registration Date</th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-              {(userRole === 'ADMIN' || userRole === 'SUPPORT') && (
-                <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
-              )}
+              <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -339,35 +339,41 @@ export default function MerchantApprovals() {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right space-x-3 flex justify-end items-center">
-                    {/* Edit button is always shown */}
-                    <button onClick={() => handleEditClick(merchant)} className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm p-1.5 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                      <Edit className="h-4 w-4" />
-                    </button>
-
-                    {/* PENDING: Show Approve / Reject */}
-                    {merchant.status === 'PENDING' && (
+                    {isAuditor ? (
+                      <span className="text-xs text-slate-400 italic">View Only</span>
+                    ) : (
                       <>
-                        <button onClick={() => handleApprove(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-green-200 bg-green-50 text-green-700 rounded-md hover:bg-green-100 font-medium text-sm transition-colors" title="Approve Merchant">
-                          <Check className="h-4 w-4 mr-1.5" /> Approve
+                        {/* Edit button */}
+                        <button onClick={() => handleEditClick(merchant)} className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm p-1.5 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                          <Edit className="h-4 w-4" />
                         </button>
-                        <button onClick={() => handleReject(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 rounded-md hover:bg-red-100 font-medium text-sm transition-colors" title="Reject Merchant">
-                          <X className="h-4 w-4 mr-1.5" /> Reject
-                        </button>
+
+                        {/* PENDING: Show Approve / Reject */}
+                        {merchant.status === 'PENDING' && (
+                          <>
+                            <button onClick={() => handleApprove(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-green-200 bg-green-50 text-green-700 rounded-md hover:bg-green-100 font-medium text-sm transition-colors" title="Approve Merchant">
+                              <Check className="h-4 w-4 mr-1.5" /> Approve
+                            </button>
+                            <button onClick={() => handleReject(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 rounded-md hover:bg-red-100 font-medium text-sm transition-colors" title="Reject Merchant">
+                              <X className="h-4 w-4 mr-1.5" /> Reject
+                            </button>
+                          </>
+                        )}
+
+                        {/* ACTIVE: Show Suspend */}
+                        {merchant.status === 'ACTIVE' && (
+                          <button onClick={() => handleSuspendClick(merchant)} className="inline-flex items-center px-3 py-1.5 border border-amber-200 bg-amber-50 text-amber-600 rounded-md hover:bg-amber-100 font-medium text-sm transition-colors" title="Suspend Merchant">
+                            <Ban className="h-4 w-4 mr-1.5" /> Suspend
+                          </button>
+                        )}
+
+                        {/* SUSPENDED: Show Reactivate */}
+                        {merchant.status === 'SUSPENDED' && (
+                          <button onClick={() => handleReactivate(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 font-medium text-sm transition-colors" title="Reactivate Merchant">
+                            <RefreshCw className="h-4 w-4 mr-1.5" /> Reactivate
+                          </button>
+                        )}
                       </>
-                    )}
-
-                    {/* ACTIVE: Show Suspend */}
-                    {merchant.status === 'ACTIVE' && (
-                      <button onClick={() => handleSuspendClick(merchant)} className="inline-flex items-center px-3 py-1.5 border border-amber-200 bg-amber-50 text-amber-600 rounded-md hover:bg-amber-100 font-medium text-sm transition-colors" title="Suspend Merchant">
-                        <Ban className="h-4 w-4 mr-1.5" /> Suspend
-                      </button>
-                    )}
-
-                    {/* SUSPENDED: Show Reactivate */}
-                    {merchant.status === 'SUSPENDED' && (
-                      <button onClick={() => handleReactivate(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 font-medium text-sm transition-colors" title="Reactivate Merchant">
-                        <RefreshCw className="h-4 w-4 mr-1.5" /> Reactivate
-                      </button>
                     )}
                   </td>
                 </tr>

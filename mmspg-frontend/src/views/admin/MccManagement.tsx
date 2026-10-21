@@ -11,6 +11,7 @@ interface MccCode {
 }
 
 export default function MccConfiguration() {
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
   const [mccCodes, setMccCodes] = useState<MccCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,13 +47,19 @@ export default function MccConfiguration() {
       });
 
       if (response.status === 401 || response.status === 403) {
-         console.error("Unauthorized! Please login again.");
-         throw new Error('Unauthorized');
+        console.error("Unauthorized! Please login again.");
+        setMccCodes([]);
+        return;
       }
-      if (!response.ok) throw new Error('Network response was not ok');
+      if (!response.ok) {
+        console.error("Failed to fetch MCC codes: " + response.status + " " + response.statusText);
+        setMccCodes([]);
+        return;
+      }
       
       const data = await response.json();
-      setMccCodes(data);
+      const items = Array.isArray(data) ? data : (data.content || data.data || []);
+      setMccCodes(items);
     } catch (error) {
       console.error('Error fetching MCC codes:', error);
     } finally {
@@ -179,12 +186,14 @@ export default function MccConfiguration() {
           <h1 className="text-2xl font-bold text-slate-800">MCC Configuration</h1>
           <p className="text-sm text-slate-500 mt-1">Manage merchant category codes here.</p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add MCC
-        </button>
+        {userRole === 'ADMIN' && (
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add MCC
+          </button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -245,18 +254,22 @@ export default function MccConfiguration() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button 
-                          onClick={() => openEditModal(mcc)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(mcc.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                      {userRole === 'ADMIN' ? (
+                        <div className="flex justify-end space-x-2">
+                          <button 
+                            onClick={() => openEditModal(mcc)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(mcc.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">View Only</span>
+                      )}
                     </td>
                   </tr>
                 ))}

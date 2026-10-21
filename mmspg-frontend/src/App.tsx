@@ -22,6 +22,18 @@ import MerchantDashboard from './views/merchant/Dashboard';
 import ResetPassword from './views/auth/ResetPassword';
 import ForgotPassword from './views/auth/ForgotPassword';
 
+function RootRedirect() {
+  const token = localStorage.getItem('token');
+  const role = (localStorage.getItem('userRole') || '').toUpperCase();
+  if (token) {
+    if (role === 'SUPPORT') return <Navigate to="/support/dashboard" replace />;
+    if (role === 'AUDITOR') return <Navigate to="/auditor/dashboard" replace />;
+    if (role === 'MERCHANT') return <Navigate to="/merchant/dashboard" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return <Navigate to="/login" replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -29,46 +41,63 @@ export default function App() {
         {/* Public Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
-        {/* Default Redirect to Login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-  <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Default Redirect to Role Dashboard or Login */}
+        <Route path="/" element={<RootRedirect />} />
 
         {/* Protected Admin Routes */}
-        <Route path="/admin" element={<ProtectedRoute />}>
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
           <Route element={<Layout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="merchant-approvals" element={<MerchantApprovals />} />
             <Route path="branches" element={<BranchManagement />} />
-            <Route path="mcc-configuration" element={<MccManagement />} /> {/* Note: ရေးထုံးပြင်ထားသည် */}
+            <Route path="mcc-configuration" element={<MccManagement />} />
             <Route path="terminals" element={<AdminTerminals />} />
             <Route path="staff-users" element={<StaffUsers />} />
             <Route path="profile" element={<StaffProfile />} />
           </Route>
         </Route>
 
-        {/* 🔴 Protected Support Routes (အသစ်ထပ်ထည့်ထားသောအပိုင်း) */}
-        <Route path="/support" element={<ProtectedRoute />}>
+        {/* Protected Support Routes */}
+        <Route path="/support" element={<ProtectedRoute allowedRoles={['SUPPORT']} />}>
           <Route element={<Layout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="merchant-approvals" element={<MerchantApprovals />} />
             <Route path="branches" element={<BranchManagement />} />
-            {/* 💡 Support သွားခွင့်ရှိသော အခြားစာမျက်နှာများကို ဤနေရာတွင် ထပ်ထည့်နိုင်ပါသည် */}
+            <Route path="mcc-configuration" element={<MccManagement />} />
+            <Route path="terminals" element={<AdminTerminals />} />
+            <Route path="profile" element={<StaffProfile />} />
+          </Route>
+        </Route>
+
+        {/* Protected Auditor Routes */}
+        <Route path="/auditor" element={<ProtectedRoute allowedRoles={['AUDITOR']} />}>
+          <Route element={<Layout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="merchant-approvals" element={<MerchantApprovals />} />
+            <Route path="branches" element={<BranchManagement />} />
+            <Route path="mcc-configuration" element={<MccManagement />} />
+            <Route path="terminals" element={<AdminTerminals />} />
+            <Route path="profile" element={<StaffProfile />} />
           </Route>
         </Route>
 
         {/* Protected Merchant Routes */}
-        <Route path="/merchant" element={<ProtectedRoute />}>
+        <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
           <Route element={<Layout />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<MerchantDashboard />} />
           </Route>
         </Route>
 
         {/* Catch-all route */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<RootRedirect />} />
       </Routes>
     </BrowserRouter>
   );
-
 }

@@ -13,6 +13,9 @@ interface Terminal {
 }
 
 export default function AdminTerminals() {
+  const rawRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = rawRole.startsWith('ROLE_') ? rawRole.substring(5) : rawRole;
+  const isAuditor = userRole === 'AUDITOR' || userRole.includes('AUDITOR');
   const [terminals, setTerminals] = useState<Terminal[]>([]);
   const [merchants, setMerchants] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
@@ -53,7 +56,11 @@ export default function AdminTerminals() {
       });
       if (response.ok) {
         const data = await response.json();
-        setTerminals(data);
+        const items = Array.isArray(data) ? data : (data.content || data.data || []);
+        setTerminals(items);
+      } else {
+        console.error(`Failed to fetch terminals: ${response.status} ${response.statusText}`);
+        setTerminals([]);
       }
     } catch (error) {
       console.error('Error fetching terminals:', error);
@@ -69,12 +76,18 @@ export default function AdminTerminals() {
       const merRes = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (merRes.ok) setMerchants(await merRes.json());
+      if (merRes.ok) {
+        const merData = await merRes.json();
+        setMerchants(Array.isArray(merData) ? merData : (merData.content || merData.data || []));
+      }
 
       const braRes = await fetch('http://127.0.0.1:8004/api/v1/admin/branches', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (braRes.ok) setBranches(await braRes.json());
+      if (braRes.ok) {
+        const braData = await braRes.json();
+        setBranches(Array.isArray(braData) ? braData : (braData.content || braData.data || []));
+      }
     } catch (error) {
       console.error('Error fetching dropdown data:', error);
     }
@@ -207,12 +220,15 @@ export default function AdminTerminals() {
           <h1 className="text-2xl font-bold text-slate-800">Terminal Management</h1>
           <p className="text-sm text-slate-500 mt-1">Manage and monitor POS terminals here.</p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Terminal
-        </button>
+        {/* Only ADMIN can see Add Terminal button (hidden for SUPPORT and AUDITOR) */}
+        {userRole === 'ADMIN' && (
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Terminal
+          </button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -280,36 +296,37 @@ export default function AdminTerminals() {
                       {new Date(terminal.createdAt).toISOString().split('T')[0]}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        
-                        {/* 🔴 Status ပေါ်မူတည်၍ ခလုတ်ပြောင်းလဲပြသခြင်း */}
-                        {terminal.status === 'SUSPENDED' ? (
-                          <button 
-                            onClick={() => handleReactivate(terminal.terminalId)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reactivate">
-                            <RefreshCw className="h-4 w-4" />
-                          </button>
-                        ) : (
+                      {isAuditor ? (
+                        <span className="text-xs text-slate-400 italic">View Only</span>
+                      ) : (
+                        <div className="flex justify-end space-x-2">
+                          {terminal.status === 'SUSPENDED' ? (
+                            <button 
+                              onClick={() => handleReactivate(terminal.terminalId)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reactivate">
+                              <RefreshCw className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => {
+                                setSuspendingTerminal(terminal);
+                                setIsSuspendModalOpen(true);
+                              }}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Suspend">
+                              <ShieldAlert className="h-4 w-4" />
+                            </button>
+                          )}
+                          
                           <button 
                             onClick={() => {
-                              setSuspendingTerminal(terminal);
-                              setIsSuspendModalOpen(true);
+                              setEditingTerminal({...terminal});
+                              setIsEditModalOpen(true);
                             }}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Suspend">
-                            <ShieldAlert className="h-4 w-4" />
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                            <Edit className="h-4 w-4" />
                           </button>
-                        )}
-                        
-                        {/* Edit Button */}
-                        <button 
-                          onClick={() => {
-                            setEditingTerminal({...terminal});
-                            setIsEditModalOpen(true);
-                          }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

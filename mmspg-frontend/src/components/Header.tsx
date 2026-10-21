@@ -38,12 +38,29 @@ export default function Header() {
   const notificationRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // LocalStorage User Info
-  const userName = localStorage.getItem('userName') || 'Admin User';
-  const userRole = localStorage.getItem('userRole') || 'ADMIN';
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    localStorage.getItem('userAvatar')
+  // User Profile State (reactive to profileUpdated events)
+  const [userName, setUserName] = useState<string>(
+    () => localStorage.getItem('userName') || 'Admin User'
   );
+  const [userRole, setUserRole] = useState<string>(
+    () => localStorage.getItem('userRole') || 'ADMIN'
+  );
+  const [avatar, setAvatar] = useState<string | null>(
+    () => localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar')
+  );
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      const stored = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+      setAvatar(stored);
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    window.addEventListener('avatarUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+      window.removeEventListener('avatarUpdated', handleProfileUpdate);
+    };
+  }, []);
 
   // ----------------------------------------------------------------------
   // 1. Fetch Notifications
@@ -128,35 +145,118 @@ export default function Header() {
   }, []);
 
   // ----------------------------------------------------------------------
-  // 4. Avatar Sync
+  // 4. Fetch User Profile & Real-time Profile/Notification Sync
   // ----------------------------------------------------------------------
+  const convertUrlToBase64AndSave = async (imageUrl: string) => {
+    if (!imageUrl || imageUrl.startsWith('data:')) return;
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(imageUrl, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          if (base64 && base64.startsWith('data:')) {
+            localStorage.setItem('adminProfileImage', base64);
+            localStorage.setItem('userAvatar', base64);
+            setAvatar(base64);
+          }
+        };
+        reader.readAsDataURL(blob);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const fetchUserProfile = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/staff-users/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.fullName) {
+          localStorage.setItem('userName', data.fullName);
+          setUserName(data.fullName);
+        }
+        if (data?.role) {
+          localStorage.setItem('userRole', data.role);
+          setUserRole(data.role);
+        }
+        const localSaved = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+        if (data?.profileImageUrl && typeof data.profileImageUrl === 'string' && data.profileImageUrl.trim()) {
+          const fullUrl =
+            data.profileImageUrl.startsWith('http') ||
+            data.profileImageUrl.startsWith('data:')
+              ? data.profileImageUrl
+              : `${API_BASE_URL}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+
+          // If we already have a valid base64 data URL in localStorage, keep it to avoid broken image issues
+          if (localSaved && localSaved.startsWith('data:')) {
+            setAvatar(localSaved);
+          } else {
+            localStorage.setItem('adminProfileImage', fullUrl);
+            localStorage.setItem('userAvatar', fullUrl);
+            setAvatar(fullUrl);
+            convertUrlToBase64AndSave(fullUrl);
+          }
+        } else if (localSaved) {
+          // If backend returns null/empty, fallback to localStorage so local changes are never overwritten with null on refresh!
+          setAvatar(localSaved);
+          if (!localSaved.startsWith('data:') && localSaved.startsWith('http')) {
+            convertUrlToBase64AndSave(localSaved);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch user profile:', err);
+      const fallback = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+      if (fallback) setAvatar(fallback);
+    }
+  };
+
   useEffect(() => {
-    const handleAvatarUpdate = () => {
-      setAvatarUrl(localStorage.getItem('userAvatar'));
+    const handleProfileSync = () => {
+      // 1. Immediately read from localStorage for instant UI feedback
+      const storedAvatar = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+      if (storedAvatar) {
+        setAvatar(storedAvatar);
+      }
+      const storedName = localStorage.getItem('userName');
+      if (storedName) {
+        setUserName(storedName);
+      }
+      const storedRole = localStorage.getItem('userRole');
+      if (storedRole) {
+        setUserRole(storedRole);
+      }
+
+      // 2. Also re-fetch from backend to guarantee fresh state
+      fetchUserProfile();
     };
 
-    window.addEventListener('avatarUpdated', handleAvatarUpdate);
+    const handleNotificationsRefresh = () => {
+      fetchNotifications();
+    };
 
-    const token = localStorage.getItem('token');
-    if (token && !localStorage.getItem('userAvatar')) {
-      fetch(`${API_BASE_URL}/api/v1/admin/staff-users/profile`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data?.profileImageUrl) {
-            const fullUrl = data.profileImageUrl.startsWith('http')
-              ? data.profileImageUrl
-              : `${API_BASE_URL}${data.profileImageUrl}`;
-            localStorage.setItem('userAvatar', fullUrl);
-            setAvatarUrl(fullUrl);
-          }
-        })
-        .catch(() => {});
-    }
+    window.addEventListener('profileUpdated', handleProfileSync);
+    window.addEventListener('avatarUpdated', handleProfileSync);
+    window.addEventListener('refreshNotifications', handleNotificationsRefresh);
+
+    // Initial fetch on mount
+    fetchUserProfile();
 
     return () => {
-      window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+      window.removeEventListener('profileUpdated', handleProfileSync);
+      window.removeEventListener('avatarUpdated', handleProfileSync);
+      window.removeEventListener('refreshNotifications', handleNotificationsRefresh);
     };
   }, []);
 
@@ -234,6 +334,7 @@ export default function Header() {
     localStorage.removeItem('userName');
     localStorage.removeItem('userRole');
     localStorage.removeItem('userAvatar');
+    localStorage.removeItem('adminProfileImage');
     navigate('/login');
   };
 
@@ -262,7 +363,13 @@ export default function Header() {
     <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm z-10">
       <div className="flex items-center flex-1">
         <h2 className="text-xl font-semibold text-slate-800 hidden md:block">
-          {userRole === 'MERCHANT' ? 'Merchant Portal' : userRole === 'SUPPORT' ? 'Support Portal' : 'Admin Portal'}
+          {userRole === 'MERCHANT' 
+            ? 'Merchant Portal' 
+            : userRole === 'SUPPORT' 
+            ? 'Support Portal' 
+            : userRole === 'AUDITOR' 
+            ? 'Auditor Portal' 
+            : 'Admin Portal'}
         </h2>
         
         {/* Search bar placeholder */}
@@ -408,15 +515,20 @@ export default function Header() {
             className="flex items-center space-x-3 focus:outline-none rounded-lg p-1 hover:bg-slate-50 transition-colors"
           >
             <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200 overflow-hidden">
-              {avatarUrl ? (
+              {avatar ? (
                 <img
-                  src={avatarUrl}
-                  alt={userName}
-                  className="h-full w-full object-cover"
-                  onError={() => setAvatarUrl(null)}
+                  src={avatar}
+                  alt="Profile"
+                  className="h-full w-full rounded-full object-cover"
+                  onError={() => {
+                    if (avatar && avatar.startsWith('http')) {
+                      convertUrlToBase64AndSave(avatar);
+                    }
+                    setAvatar(null);
+                  }}
                 />
               ) : (
-                <span className="font-bold">{userName.charAt(0).toUpperCase()}</span>
+                <span className="font-bold">T</span>
               )}
             </div>
             <div className="hidden md:flex items-center text-left">
@@ -437,7 +549,9 @@ export default function Header() {
 
               <button
                 onMouseDown={() => {
-                  navigate('/admin/profile');
+                  const role = (userRole || localStorage.getItem('userRole') || 'ADMIN').toUpperCase();
+                  const basePath = role === 'SUPPORT' ? '/support' : role === 'AUDITOR' ? '/auditor' : '/admin';
+                  navigate(`${basePath}/profile`);
                   setIsProfileOpen(false);
                 }}
                 className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"

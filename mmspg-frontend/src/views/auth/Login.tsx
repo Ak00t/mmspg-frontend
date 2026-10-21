@@ -73,11 +73,11 @@ export default function Login() {
         localStorage.setItem('userName', data.fullName);
         localStorage.setItem('userRole', data.role);
 
-        if (data.role === 'ADMIN') {
-          navigate('/admin/dashboard');
-        } else if (data.role === 'SUPPORT') {
+        // Navigate staff based on their specific role (SUPPORT, AUDITOR, ADMIN)
+        const role = (data.role || '').toUpperCase();
+        if (role === 'SUPPORT') {
           navigate('/support/dashboard');
-        } else if (data.role === 'AUDITOR') {
+        } else if (role === 'AUDITOR') {
           navigate('/auditor/dashboard');
         } else {
           navigate('/admin/dashboard');
@@ -189,13 +189,13 @@ export default function Login() {
           </div>
 
           <div className="flex items-center justify-between text-xs">
-            <label className="flex items-center gap-2 cursor-pointer text-slate-600">
+            <div className="flex items-center gap-2 cursor-pointer text-slate-600">
               <input
                 id="remember-me"
                 type="checkbox"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-700">
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-700 cursor-pointer">
                 Remember me
               </label>
             </div>

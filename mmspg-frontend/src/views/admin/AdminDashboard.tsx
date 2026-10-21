@@ -20,6 +20,14 @@ interface DashboardData {
 
 export default function AdminDashboard() {
   const navigate = useNavigate(); // 🔴 Added
+  const userRole = (localStorage.getItem('userRole') || 'ADMIN').toUpperCase();
+  const basePath = userRole === 'SUPPORT' ? '/support' : userRole === 'AUDITOR' ? '/auditor' : '/admin';
+  const dashboardTitle = userRole === 'SUPPORT' 
+    ? 'Support Dashboard' 
+    : userRole === 'AUDITOR' 
+    ? 'Auditor Dashboard' 
+    : 'Admin Dashboard';
+
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +110,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
+        <h1 className="text-2xl font-bold text-slate-800">{dashboardTitle}</h1>
       </div>
 
       {/* KPI Cards */}
@@ -190,7 +198,7 @@ export default function AdminDashboard() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       {/* 🔴 onClick ကို ဤနေရာတွင် ချိတ်ဆက်ထားပါသည် */}
                       <button 
-                        onClick={() => navigate('/admin/merchant-approvals')}
+                        onClick={() => navigate(`${basePath}/merchant-approvals`)}
                         className="inline-flex items-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
                       >
                         <CheckCircle className="h-4 w-4 mr-1.5" />

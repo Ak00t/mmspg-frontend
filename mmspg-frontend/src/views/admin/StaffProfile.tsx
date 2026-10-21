@@ -42,7 +42,7 @@ export default function StaffProfile() {
     const storedName = localStorage.getItem('userName');
     const storedRole = localStorage.getItem('userRole');
     const storedEmail = localStorage.getItem('userEmail');
-    const storedAvatar = localStorage.getItem('userAvatar');
+    const storedAvatar = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
 
     if (storedName) setUserName(storedName);
     if (storedRole) setUserRole(storedRole);
@@ -62,17 +62,57 @@ export default function StaffProfile() {
             if (data.email) setUserEmail(data.email);
             if (data.role) setUserRole(data.role);
             if (data.status) setUserStatus(data.status);
-            if (data.profileImageUrl) {
-              const fullUrl = data.profileImageUrl.startsWith('http')
+
+            const localSaved = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+            if (data.profileImageUrl && typeof data.profileImageUrl === 'string' && data.profileImageUrl.trim()) {
+              const fullUrl = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
                 ? data.profileImageUrl
-                : `http://127.0.0.1:8004${data.profileImageUrl}`;
-              setProfileImageUrl(fullUrl);
-              localStorage.setItem('userAvatar', fullUrl);
-              window.dispatchEvent(new Event('avatarUpdated'));
+                : `http://127.0.0.1:8004${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+
+              // If localStorage already has a valid Base64 string, keep it so it doesn't break or get replaced
+              if (localSaved && localSaved.startsWith('data:')) {
+                setProfileImageUrl(localSaved);
+              } else {
+                setProfileImageUrl(fullUrl);
+                localStorage.setItem('adminProfileImage', fullUrl);
+                localStorage.setItem('userAvatar', fullUrl);
+                window.dispatchEvent(new Event('profileUpdated'));
+                window.dispatchEvent(new Event('avatarUpdated'));
+
+                if (fullUrl.startsWith('http')) {
+                  const currentToken = localStorage.getItem('token');
+                  fetch(fullUrl, { headers: currentToken ? { 'Authorization': `Bearer ${currentToken}` } : {} })
+                    .then(res => res.ok ? res.blob() : null)
+                    .then(blob => {
+                      if (blob) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          const base64 = reader.result as string;
+                          if (base64 && base64.startsWith('data:')) {
+                            setProfileImageUrl(base64);
+                            localStorage.setItem('adminProfileImage', base64);
+                            localStorage.setItem('userAvatar', base64);
+                            window.dispatchEvent(new Event('profileUpdated'));
+                            window.dispatchEvent(new Event('avatarUpdated'));
+                          }
+                        };
+                        reader.readAsDataURL(blob);
+                      }
+                    })
+                    .catch(() => {});
+                }
+              }
+            } else if (localSaved) {
+              // If backend returns null/empty, fallback to localStorage so local changes are never overwritten with null!
+              setProfileImageUrl(localSaved);
             }
           }
         })
-        .catch(err => console.error('Failed to load profile:', err));
+        .catch(err => {
+          console.error('Failed to load profile:', err);
+          const fallback = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+          if (fallback) setProfileImageUrl(fallback);
+        });
 
       // 🔴 Backend မှ Real Login Activity များ လှမ်းယူခြင်း
       fetch('http://127.0.0.1:8004/api/v1/admin/staff-users/profile/login-activity', {
@@ -86,6 +126,21 @@ export default function StaffProfile() {
         })
         .catch(err => console.error('Failed to load login activities:', err));
     }
+  }, []);
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      const stored = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+      if (stored) {
+        setProfileImageUrl(stored);
+      }
+    };
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    window.addEventListener('avatarUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+      window.removeEventListener('avatarUpdated', handleProfileUpdate);
+    };
   }, []);
 
   // 3. Change Password Form State
@@ -168,9 +223,16 @@ export default function StaffProfile() {
   };
 
   const handleProfileImageUploaded = (newUrl: string) => {
-    setProfileImageUrl(newUrl);
-    localStorage.setItem('userAvatar', newUrl);
+    const fullUrl =
+      newUrl.startsWith('http') || newUrl.startsWith('blob:') || newUrl.startsWith('data:')
+        ? newUrl
+        : `http://127.0.0.1:8004${newUrl.startsWith('/') ? '' : '/'}${newUrl}`;
+    setProfileImageUrl(fullUrl);
+    localStorage.setItem('adminProfileImage', fullUrl);
+    localStorage.setItem('userAvatar', fullUrl);
+    window.dispatchEvent(new Event('profileUpdated'));
     window.dispatchEvent(new Event('avatarUpdated'));
+    window.dispatchEvent(new Event('refreshNotifications'));
   };
 
   return (
