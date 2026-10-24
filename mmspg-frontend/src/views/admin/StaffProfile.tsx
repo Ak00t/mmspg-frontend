@@ -203,9 +203,9 @@ export default function StaffProfile() {
                   {userRole}
                 </div>
                 <h2 className="text-xl font-bold text-slate-900">{userName}</h2>
-                <div className="flex items-center justify-center sm:justify-start gap-1.5 text-sm text-slate-500">
-                  <Mail className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="truncate">{userEmail}</span>
+                <div className="flex items-start justify-center sm:justify-start gap-1.5 text-sm text-slate-500">
+                  <Mail className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <span className="break-all">{userEmail}</span>
                 </div>
               </div>
             </div>

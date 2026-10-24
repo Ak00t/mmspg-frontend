@@ -35,8 +35,7 @@ export default function Login() {
         });
 
         const data = await response.json();
-
-        if (!response.ok) {
+if (!response.ok) {
           throw new Error(data.message || 'Invalid merchant credentials');
         }
 
@@ -49,8 +48,15 @@ export default function Login() {
         localStorage.setItem('userName', data.businessName);
         localStorage.setItem('userRole', 'MERCHANT');
 
+        // 🔴 ဤနေရာတွင် Profile ပုံကိုပါ သိမ်းမည့်ကုဒ် ထပ်ထည့်ပါ
+        // (Backend က ပို့ပေးမည့် ပုံ၏ variable အမည်ပေါ်မူတည်၍ data.avatar သို့မဟုတ် data.profileImage စသဖြင့် ပြင်ရေးနိုင်ပါသည်)
+        if (data.avatar || data.profileImage || data.image) {
+          localStorage.setItem('userAvatar', data.avatar || data.profileImage || data.image);
+        }
+
         navigate('/merchant/dashboard');
       } else {
+        
         // 🛡️ Staff / Admin Login Endpoint
         const response = await fetch('http://127.0.0.1:8004/api/v1/login', {
           method: 'POST',
@@ -61,6 +67,7 @@ export default function Login() {
         });
 
         const data = await response.json();
+        console.log("Login Response Data: ", data);
 
         if (!response.ok) {
           throw new Error(data.message || 'Invalid staff credentials');
@@ -72,6 +79,14 @@ export default function Login() {
         localStorage.setItem('userId', data.staffId || data.id);
         localStorage.setItem('userName', data.fullName);
         localStorage.setItem('userRole', data.role);
+
+
+        if (data.profileImage || data.avatar || data.image) {
+          localStorage.setItem('userAvatar', data.profileImage || data.avatar || data.image);
+        } else {
+          localStorage.removeItem('userAvatar');
+        }
+
 
         if (data.role === 'ADMIN') {
           navigate('/admin/dashboard');
@@ -189,7 +204,7 @@ export default function Login() {
           </div>
 
           <div className="flex items-center justify-between text-xs">
-            <label className="flex items-center gap-2 cursor-pointer text-slate-600">
+            <div className="flex items-center gap-2 cursor-pointer text-slate-600">
               <input
                 id="remember-me"
                 type="checkbox"
