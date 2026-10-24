@@ -14,3 +14,25 @@ export const emptyDashboardSummary: DashboardSummary = {
   transactionsByStatus: {},
 }
 
+export type MerchantProfile = {
+  merchantId: string
+  merchantCode: string
+  businessName: string
+  businessRegistrationNo?: string
+  email: string
+  phone?: string
+  contactName?: string
+  settlementAccountNo: string
+  status: string
+  mccCode?: string
+  mccDescription?: string
+}
+
+export type RecentTransaction = {
+  transactionReference: string
+  orderId: string
+  amount: number
+  currency: string
+  status: string
+  initiatedAt: string
+}

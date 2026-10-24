@@ -195,10 +195,10 @@ export default function Login() {
                 type="checkbox"
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-700">
+              <span className="block text-sm text-slate-700">
                 Remember me
-              </label>
-            </div>
+              </span>
+            </label>
             <div className="text-sm">
               {/* 🔴 href အစား onClick ဖြင့် navigate ကို အသုံးပြုထားပါသည် */}
               <a 

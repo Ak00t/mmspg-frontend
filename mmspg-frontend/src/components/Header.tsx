@@ -8,7 +8,8 @@ import {
   Check, 
   CheckCheck, 
   Loader2,
-  Inbox
+  Inbox,
+  Menu
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
@@ -25,7 +26,12 @@ export interface NotificationItem {
   status?: string; // 'READ' | 'UNREAD'
 }
 
-export default function Header() {
+interface HeaderProps {
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+}
+
+export default function Header({ isSidebarOpen = true, onToggleSidebar }: HeaderProps = {}) {
   const navigate = useNavigate();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -261,7 +267,18 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm z-10">
       <div className="flex items-center flex-1">
-        <h2 className="text-xl font-semibold text-slate-800 hidden md:block">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="mr-3 p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none"
+            title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+        <h2 className="text-xl font-semibold text-slate-800 hidden sm:block">
           {userRole === 'MERCHANT' ? 'Merchant Portal' : userRole === 'SUPPORT' ? 'Support Portal' : 'Admin Portal'}
         </h2>
         
