@@ -5,6 +5,7 @@ import { getMerchantDashboardSummary } from '../api/merchantDashboardApi'
 import { MetricCard } from '../components/MetricCard'
 import { MerchantSidebar } from '../components/MerchantSidebar'
 import { TransactionStatusCard } from '../components/TransactionStatusCard'
+import { MerchantReportExport } from '../components/MerchantReportExport'
 import { emptyDashboardSummary } from '../types'
 
 function formatMoney(value: number) {
@@ -66,7 +67,9 @@ export function MerchantDashboardPage() {
               <TransactionStatusCard statusCounts={hasStatusData ? summary.transactionsByStatus : {}} />
               <section className="rounded-2xl bg-indigo-600 p-6 text-white shadow-sm" id="settlements"><p className="text-sm font-medium text-indigo-200">Settlement health</p><h2 className="mt-3 text-3xl font-bold">{formatMoney(summary.availableSettlementBalance)}</h2><p className="mt-2 text-sm leading-6 text-indigo-100">Your current pending settlement balance. Funds and settlement timing are subject to processing status.</p><div className="mt-8 flex items-center justify-between border-t border-indigo-400/40 pt-4 text-sm"><span className="text-indigo-200">Pending settlements</span><span className="font-semibold">{summary.pendingSettlementsCount}</span></div></section>
             </div>
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" id="reports"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h2 className="font-semibold">Reports</h2><p className="mt-1 text-sm text-slate-400">Download detailed transaction and settlement reports.</p></div><button className="rounded-xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">View reports</button></div></section>
+            <section id="reports">
+              <MerchantReportExport />
+            </section>
           </div>
         </section>
       </div>
