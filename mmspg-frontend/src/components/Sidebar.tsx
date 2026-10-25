@@ -7,6 +7,7 @@ import {
   CreditCard, 
   UserCog,
   FileSpreadsheet,
+  Webhook,
   PanelLeftClose
 } from 'lucide-react';
 
@@ -27,7 +28,8 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
   if (userRole === 'MERCHANT') {
     sidebarLinks = [
       { to: '/merchant/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/merchant/reports', icon: FileSpreadsheet, label: 'Reports Export' }
+      { to: '/merchant/reports', icon: FileSpreadsheet, label: 'Reports Export' },
+      { to: '/merchant/webhooks', icon: Webhook, label: 'Webhooks' }
     ];
   } else {
     sidebarLinks = [

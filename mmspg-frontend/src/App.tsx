@@ -20,6 +20,7 @@ import StaffProfile from './views/admin/StaffProfile';
 // Merchant Views
 import MerchantDashboard from './views/merchant/Dashboard';
 import MerchantReports from './views/merchant/Reports';
+import MerchantWebhooks from './views/merchant/Webhooks';
 import ResetPassword from './views/auth/ResetPassword';
 import ForgotPassword from './views/auth/ForgotPassword';
 
@@ -64,6 +65,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="dashboard" element={<MerchantDashboard />} />
             <Route path="reports" element={<MerchantReports />} />
+            <Route path="webhooks" element={<MerchantWebhooks />} />
           </Route>
         </Route>
 

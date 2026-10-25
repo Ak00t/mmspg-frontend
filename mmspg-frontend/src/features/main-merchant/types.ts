@@ -36,3 +36,38 @@ export type RecentTransaction = {
   status: string
   initiatedAt: string
 }
+
+export type WebhookConfig = {
+  webhookId: string
+  merchantId: string
+  callbackUrl: string
+  returnUrl?: string
+  rawSecretKey?: string
+  eventPaymentCompleted: boolean
+  eventPaymentFailed: boolean
+  maxRetry: number
+  description?: string
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type CreateWebhookInput = {
+  callbackUrl: string
+  returnUrl?: string
+  eventPaymentCompleted: boolean
+  eventPaymentFailed: boolean
+  maxRetry: number
+  description?: string
+}
+
+export type UpdateWebhookInput = {
+  callbackUrl: string
+  returnUrl?: string
+  eventPaymentCompleted: boolean
+  eventPaymentFailed: boolean
+  maxRetry: number
+  description?: string
+  status?: 'ACTIVE' | 'INACTIVE'
+}
+
