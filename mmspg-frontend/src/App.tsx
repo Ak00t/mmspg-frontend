@@ -16,7 +16,6 @@ import MccManagement from './views/admin/MccManagement';
 import AdminTerminals from './views/admin/AdminTerminals';
 import StaffUsers from './views/admin/StaffUsers';
 import StaffProfile from './views/admin/StaffProfile';
-
 // Merchant Views
 import MerchantDashboard from './views/merchant/Dashboard';
 import MerchantReports from './views/merchant/Reports';
