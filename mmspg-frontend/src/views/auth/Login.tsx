@@ -35,7 +35,7 @@ export default function Login() {
         });
 
         const data = await response.json();
-if (!response.ok) {
+        if (!response.ok) {
           throw new Error(data.message || 'Invalid merchant credentials');
         }
 
@@ -56,7 +56,7 @@ if (!response.ok) {
 
         navigate('/merchant/dashboard');
       } else {
-        
+
         // 🛡️ Staff / Admin Login Endpoint
         const response = await fetch('http://127.0.0.1:8004/api/v1/login', {
           method: 'POST',
@@ -123,11 +123,10 @@ if (!response.ok) {
           <button
             type="button"
             onClick={() => handleTabChange('MERCHANT')}
-            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${
-              portalType === 'MERCHANT'
+            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${portalType === 'MERCHANT'
                 ? 'bg-white text-indigo-700 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <Store className="h-4 w-4" />
             <span>Merchant</span>
@@ -136,11 +135,10 @@ if (!response.ok) {
           <button
             type="button"
             onClick={() => handleTabChange('STAFF')}
-            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${
-              portalType === 'STAFF'
+            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${portalType === 'STAFF'
                 ? 'bg-slate-900 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             <ShieldCheck className="h-4 w-4" />
             <span>Staff / Admin</span>
@@ -204,7 +202,7 @@ if (!response.ok) {
           </div>
 
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 cursor-pointer text-slate-600">
+            <label className="flex items-center gap-2 cursor-pointer text-slate-600">
               <input
                 id="remember-me"
                 type="checkbox"
@@ -216,8 +214,8 @@ if (!response.ok) {
             </label>
             <div className="text-sm">
               {/* 🔴 href အစား onClick ဖြင့် navigate ကို အသုံးပြုထားပါသည် */}
-              <a 
-                href="#" 
+              <a
+                href="#"
                 onClick={(e) => {
                   e.preventDefault(); // # ကြောင့် စာမျက်နှာခုန်ခြင်းကို တားပေးသည်
                   navigate('/forgot-password');
@@ -233,11 +231,10 @@ if (!response.ok) {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl shadow-sm text-sm font-semibold text-white transition-all disabled:opacity-60 ${
-                portalType === 'MERCHANT'
+              className={`w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl shadow-sm text-sm font-semibold text-white transition-all disabled:opacity-60 ${portalType === 'MERCHANT'
                   ? 'bg-indigo-600 hover:bg-indigo-700'
                   : 'bg-slate-900 hover:bg-slate-800'
-              }`}
+                }`}
             >
               <span>{isLoading ? 'Signing in...' : portalType === 'MERCHANT' ? 'Sign in to Merchant Portal' : 'Sign in as Staff'}</span>
               <ArrowRight className="h-4 w-4" />
