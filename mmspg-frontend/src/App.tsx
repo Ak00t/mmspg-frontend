@@ -1,8 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-//import { MerchantDashboard } from './features/main-merchant/pages/MerchantDashboardPage';
-
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Auth Views
 import Login from './views/auth/Login';
@@ -16,6 +15,7 @@ import MccManagement from './views/admin/MccManagement';
 import AdminTerminals from './views/admin/AdminTerminals';
 import StaffUsers from './views/admin/StaffUsers';
 import StaffProfile from './views/admin/StaffProfile';
+import Settings from './views/admin/Settings';
 
 // Merchant Views
 import MerchantDashboard from './views/merchant/Dashboard';
@@ -36,68 +36,73 @@ function RootRedirect() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Auth Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Auth Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Default Redirect to Role Dashboard or Login */}
-        <Route path="/" element={<RootRedirect />} />
+          {/* Default Redirect */}
+          <Route path="/" element={<RootRedirect />} />
 
-        {/* Protected Admin Routes */}
-        <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-          <Route element={<Layout />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="merchant-approvals" element={<MerchantApprovals />} />
-            <Route path="branches" element={<BranchManagement />} />
-            <Route path="mcc-configuration" element={<MccManagement />} />
-            <Route path="terminals" element={<AdminTerminals />} />
-            <Route path="staff-users" element={<StaffUsers />} />
-            <Route path="profile" element={<StaffProfile />} />
+          {/* Protected Admin Routes */}
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+            <Route element={<Layout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="merchant-approvals" element={<MerchantApprovals />} />
+              <Route path="branches" element={<BranchManagement />} />
+              <Route path="mcc-configuration" element={<MccManagement />} />
+              <Route path="terminals" element={<AdminTerminals />} />
+              <Route path="staff-users" element={<StaffUsers />} />
+              <Route path="profile" element={<StaffProfile />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* Protected Support Routes */}
-        <Route path="/support" element={<ProtectedRoute allowedRoles={['SUPPORT']} />}>
-          <Route element={<Layout />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="merchant-approvals" element={<MerchantApprovals />} />
-            <Route path="branches" element={<BranchManagement />} />
-            <Route path="mcc-configuration" element={<MccManagement />} />
-            <Route path="terminals" element={<AdminTerminals />} />
-            <Route path="profile" element={<StaffProfile />} />
+          {/* Protected Support Routes */}
+          <Route path="/support" element={<ProtectedRoute allowedRoles={['SUPPORT']} />}>
+            <Route element={<Layout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="merchant-approvals" element={<MerchantApprovals />} />
+              <Route path="branches" element={<BranchManagement />} />
+              <Route path="mcc-configuration" element={<MccManagement />} />
+              <Route path="terminals" element={<AdminTerminals />} />
+              <Route path="profile" element={<StaffProfile />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* Protected Auditor Routes */}
-        <Route path="/auditor" element={<ProtectedRoute allowedRoles={['AUDITOR']} />}>
-          <Route element={<Layout />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="merchant-approvals" element={<MerchantApprovals />} />
-            <Route path="branches" element={<BranchManagement />} />
-            <Route path="mcc-configuration" element={<MccManagement />} />
-            <Route path="terminals" element={<AdminTerminals />} />
-            <Route path="profile" element={<StaffProfile />} />
+          {/* Protected Auditor Routes */}
+          <Route path="/auditor" element={<ProtectedRoute allowedRoles={['AUDITOR']} />}>
+            <Route element={<Layout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="merchant-approvals" element={<MerchantApprovals />} />
+              <Route path="branches" element={<BranchManagement />} />
+              <Route path="mcc-configuration" element={<MccManagement />} />
+              <Route path="terminals" element={<AdminTerminals />} />
+              <Route path="profile" element={<StaffProfile />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* Protected Merchant Routes */}
-        <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
-          <Route element={<Layout />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<MerchantDashboard />} />
+          {/* Protected Merchant Routes */}
+          <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
+            <Route element={<Layout />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<MerchantDashboard />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* Catch-all route */}
-        <Route path="*" element={<RootRedirect />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Catch-all */}
+          <Route path="*" element={<RootRedirect />} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

@@ -1,15 +1,31 @@
 import { NavLink } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import merchantLogo from '../assets/merchant-logo.png';
 import { 
   LayoutDashboard, 
   Users, 
   Building2, 
   Settings, 
   CreditCard, 
-  UserCog 
+  UserCog,
+  ChevronLeft
 } from 'lucide-react';
 
-export default function Sidebar() {
+type SidebarLink = {
+  to: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+};
+
+interface SidebarProps {
+  isOpen?: boolean;
+  onToggle?: () => void;
+}
+
+export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
+  const { t } = useTranslation();
+
   const [userRole, setUserRole] = useState<string>(() => 
     (localStorage.getItem('userRole') || 'ADMIN').toUpperCase()
   );
@@ -31,48 +47,67 @@ export default function Sidebar() {
     ? '/auditor' 
     : '/admin';
 
-  let sidebarLinks = [];
+  let sidebarLinks: SidebarLink[] = [];
 
   if (userRole === 'MERCHANT') {
     sidebarLinks = [
-      { to: '/merchant/dashboard', icon: LayoutDashboard, label: 'Dashboard & Reports' }
+      { to: '/merchant/dashboard', icon: LayoutDashboard, label: t('nav.dashboardReports') },
     ];
   } else {
     sidebarLinks = [
-      { to: `${basePath}/dashboard`, icon: LayoutDashboard, label: 'Dashboard' },
-      { to: `${basePath}/merchant-approvals`, icon: Users, label: 'Merchant Approvals' },
-      { to: `${basePath}/branches`, icon: Building2, label: 'Branch Management' },
-      { to: `${basePath}/mcc-configuration`, icon: Settings, label: 'Mcc Management' },
-      { to: `${basePath}/terminals`, icon: CreditCard, label: 'Admin Terminals' }
+      { to: `${basePath}/dashboard`,          icon: LayoutDashboard, label: t('nav.dashboard') },
+      { to: `${basePath}/merchant-approvals`, icon: Users,           label: t('nav.merchantApprovals') },
+      { to: `${basePath}/branches`,           icon: Building2,       label: t('nav.branchManagement') },
+      { to: `${basePath}/mcc-configuration`,  icon: Settings,        label: t('nav.mccManagement') },
+      { to: `${basePath}/terminals`,          icon: CreditCard,      label: t('nav.terminals') },
     ];
 
-    // Only ADMIN role can see and access Staff Users
     if (userRole === 'ADMIN') {
       sidebarLinks.push(
-        { to: `${basePath}/staff-users`, icon: UserCog, label: 'Staff Users' }
+        { to: `${basePath}/staff-users`, icon: UserCog, label: t('nav.staffUsers') }
       );
     }
   }
 
-  const sectionTitle = userRole === 'SUPPORT' 
-    ? 'Support' 
-    : userRole === 'AUDITOR' 
-    ? 'Auditor' 
-    : userRole === 'MERCHANT' 
-    ? 'Merchant' 
-    : 'Administration';
+  const sectionTitle =
+    userRole === 'SUPPORT'  ? t('nav.support') :
+    userRole === 'AUDITOR'  ? t('nav.auditor') :
+    userRole === 'MERCHANT' ? t('nav.merchant') :
+    t('nav.administration');
 
   return (
-    <aside className="w-64 bg-slate-900 text-white min-h-screen flex flex-col transition-all duration-300 shadow-xl z-20">
-      <div className="p-6 border-b border-slate-800">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">PayGateway</h1>
+    <aside className={`${
+      isOpen 
+        ? 'w-64 opacity-100 translate-x-0' 
+        : 'w-0 -translate-x-full opacity-0 pointer-events-none p-0 overflow-hidden border-0'
+    } bg-slate-900 dark:bg-slate-950 text-white min-h-screen flex flex-col transition-all duration-300 ease-in-out shadow-xl z-20 border-r border-slate-800 shrink-0`}>
+      {/* Brand */}
+      <div className="px-4 py-4 border-b border-slate-800 flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img src={merchantLogo} alt="PaymentGateWay Logo" className="h-8 w-auto object-contain shrink-0 filter drop-shadow" />
+          <h1 className="text-base font-bold text-white tracking-tight truncate">
+            PaymentGateWay
+          </h1>
+        </div>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-none shrink-0"
+            title="Collapse Sidebar"
+            aria-label="Collapse Sidebar"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
       </div>
+
+      {/* Nav Links */}
       <nav className="flex-1 py-6 px-3 space-y-1">
         <div className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
           {sectionTitle}
         </div>
-        
-        {/* 🔴 ၅။ adminLinks အစား ပြင်ဆင်ထားသော sidebarLinks ကို အသုံးပြုမည် */}
+
         {sidebarLinks.map((link) => {
           const Icon = link.icon;
           return (
@@ -81,22 +116,40 @@ export default function Sidebar() {
               to={link.to}
               className={({ isActive }) =>
                 `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                  isActive 
-                    ? 'bg-blue-600 text-white shadow-md' 
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`
               }
             >
-              <Icon className="mr-3 h-5 w-5" />
+              <Icon className="mr-3 h-5 w-5 shrink-0" />
               {link.label}
             </NavLink>
           );
         })}
       </nav>
-      <div className="p-4 border-t border-slate-800">
-        <div className="flex items-center px-4 py-3 text-sm font-medium text-slate-400 rounded-lg">
-          <span>v1.0.0</span>
+
+      {/* Settings at bottom (non-merchant only) */}
+      {userRole !== 'MERCHANT' && (
+        <div className="px-3 pb-3 border-t border-slate-800 pt-3">
+          <NavLink
+            to={`${basePath}/settings`}
+            className={({ isActive }) =>
+              `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`
+            }
+          >
+            <Settings className="mr-3 h-5 w-5 shrink-0" />
+            {t('nav.settings')}
+          </NavLink>
         </div>
+      )}
+
+      <div className="p-4 border-t border-slate-800">
+        <p className="px-4 text-xs text-slate-600">{t('nav.version')}</p>
       </div>
     </aside>
   );

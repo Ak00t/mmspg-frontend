@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Plus, Building2, Edit, Power, X } from 'lucide-react'; 
 
 interface Branch {
@@ -12,6 +13,7 @@ interface Branch {
 }
 
 export default function BranchManagement() {
+  const { t } = useTranslation();
   const rawRole = (localStorage.getItem('userRole') || '').toUpperCase();
   const userRole = rawRole.startsWith('ROLE_') ? rawRole.substring(5) : rawRole;
   const isAuditor = userRole === 'AUDITOR' || userRole.includes('AUDITOR');
@@ -19,11 +21,9 @@ export default function BranchManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Edit Modal အတွက် State များ
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
 
-  // Add Modal အတွက် State အသစ်များ
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [merchants, setMerchants] = useState<any[]>([]); 
   const [newBranch, setNewBranch] = useState({
@@ -43,9 +43,8 @@ export default function BranchManagement() {
   const fetchBranches = async () => {
     const token = localStorage.getItem('token'); 
     if (!token) {
-        console.error("No token found. Please login.");
-        setLoading(false);
-        return; 
+      setLoading(false);
+      return; 
     }
 
     try {
@@ -57,17 +56,9 @@ export default function BranchManagement() {
         }
       });
 
-      if (response.status === 401 || response.status === 403) {
-         console.error("Unauthorized! Please login again.");
-         throw new Error('Unauthorized');
-      }
       if (!response.ok) throw new Error('Network response was not ok');
-      
       const data = await response.json();
-      
-      // 💡 နောက်ဆုံးထည့်ထားသော Branch ကို အပေါ်ဆုံးသို့ပို့ရန် Array ကို reverse လုပ်ပေးပါ
       setBranches(data.reverse()); 
-
     } catch (error) {
       console.error('Error fetching branches:', error);
     } finally {
@@ -84,7 +75,7 @@ export default function BranchManagement() {
       });
       if (response.ok) {
         const data = await response.json();
-        setMerchants(data);
+        setMerchants(Array.isArray(data) ? data : (data.content || []));
       }
     } catch (error) {
       console.error('Error fetching merchants:', error);
@@ -93,7 +84,7 @@ export default function BranchManagement() {
 
   const handleAddSubmit = async () => {
     if (!newBranch.merchantId || !newBranch.branchCode || !newBranch.branchName) {
-      alert("Merchant, Branch Code, and Branch Name are required.");
+      alert('Please fill all required fields');
       return;
     }
 
@@ -111,14 +102,11 @@ export default function BranchManagement() {
       if (response.ok) {
         setIsAddModalOpen(false);
         setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
-        fetchBranches(); 
-        
-        // 🔴 Trigger real-time notification
+        fetchBranches();
         window.dispatchEvent(new Event('refreshNotifications'));
-        alert("Branch added successfully!"); 
+        alert('Branch added successfully!');
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        alert(`Failed to add branch: ${errorData.error || 'Unknown error'}`);
+        alert('Failed to add branch');
       }
     } catch (error) {
       console.error('Error adding branch:', error);
@@ -126,27 +114,21 @@ export default function BranchManagement() {
   };
 
   const handleToggleStatus = async (branchId: string, currentStatus: string) => {
-    const action = currentStatus === 'ACTIVE' ? 'disable' : 'activate';
-    if (!window.confirm(`Are you sure you want to ${action} this branch?`)) return;
-
-    const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     const token = localStorage.getItem('token');
+    const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
 
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/branches/${branchId}/status`, { 
+      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/branches/${branchId}/status?status=${newStatus}`, {
         method: 'PUT',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
       });
 
       if (response.ok) {
         setBranches(branches.map(b => b.branchId === branchId ? { ...b, status: newStatus } : b));
-        
-        // 🔴 Trigger real-time notification
         window.dispatchEvent(new Event('refreshNotifications'));
-      } else {
-        alert('Failed to update branch status.');
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -180,8 +162,6 @@ export default function BranchManagement() {
         setBranches(branches.map(b => b.branchId === editingBranch.branchId ? editingBranch : b));
         setIsEditModalOpen(false);
         setEditingBranch(null);
-        
-        // 🔴 Trigger real-time notification
         window.dispatchEvent(new Event('refreshNotifications'));
         alert('Branch updated successfully!');
       } else {
@@ -192,13 +172,13 @@ export default function BranchManagement() {
     }
   };
 
- const filteredBranches = branches.filter(branch => {
+  const filteredBranches = branches.filter(branch => {
     const searchLower = searchTerm.toLowerCase();
     return (
       (branch.branchCode && branch.branchCode.toLowerCase().includes(searchLower)) || 
       (branch.branchName && branch.branchName.toLowerCase().includes(searchLower)) ||
       (branch.merchantName && branch.merchantName.toLowerCase().includes(searchLower)) ||
-      (branch.city && branch.city.toLowerCase().includes(searchLower)) // 💡 City ကိုပါ ရှာဖွေရန် ထည့်သွင်းထားပါသည်
+      (branch.city && branch.city.toLowerCase().includes(searchLower))
     );
   });
 
@@ -207,29 +187,29 @@ export default function BranchManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Branch Management</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage merchant branches and locations here.</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('branches.title')}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('branches.subtitle')}</p>
         </div>
         {!isAuditor && (userRole === 'ADMIN' || userRole === 'SUPPORT') && (
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
-            Add Branch
+            {t('branches.addBranch')}
           </button>
         )}
       </div>
 
       {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center">
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center">
         <div className="relative w-full max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-slate-400" />
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-colors"
-            placeholder="Search by branch or merchant..."
+            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm transition-colors"
+            placeholder={t('branches.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -237,49 +217,49 @@ export default function BranchManagement() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-slate-500">Loading branches...</div>
+            <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('branches.loading')}</div>
           ) : (
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-900">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Branch Info</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Merchant</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact / City</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('branches.colBranchInfo')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('branches.colMerchant')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('branches.colContactCity')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('branches.colStatus')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('branches.colActions')}</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {filteredBranches.map((branch, index) => (
-                  <tr key={branch.branchId || index} className="hover:bg-slate-50 transition-colors">
+                  <tr key={branch.branchId || index} className="hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-teal-50 flex items-center justify-center text-teal-600">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 dark:text-teal-400">
                           <Building2 className="h-5 w-5" />
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-bold text-slate-900">{branch.branchCode}</div>
-                          <div className="text-sm text-slate-500">{branch.branchName}</div>
+                          <div className="text-sm font-bold text-slate-900 dark:text-white">{branch.branchCode}</div>
+                          <div className="text-sm text-slate-500 dark:text-slate-400">{branch.branchName}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-slate-900">{branch.merchantName}</div>
+                      <div className="text-sm font-medium text-slate-900 dark:text-white">{branch.merchantName}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-900">{branch.city || '-'}</div>
-                      <div className="text-sm text-slate-500">{branch.phone || '-'}</div>
+                      <div className="text-sm text-slate-900 dark:text-slate-200">{branch.city || '-'}</div>
+                      <div className="text-sm text-slate-500 dark:text-slate-400">{branch.phone || '-'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         branch.status === 'ACTIVE' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                       }`}>
-                        {branch.status}
+                        {branch.status === 'ACTIVE' ? t('common.active') : t('common.inactive')}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -289,12 +269,12 @@ export default function BranchManagement() {
                         <div className="flex justify-end space-x-2">
                           <button 
                             onClick={() => openEditModal(branch)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title={t('common.edit')}>
                             <Edit className="h-4 w-4" />
                           </button>
                           <button 
                             onClick={() => handleToggleStatus(branch.branchId, branch.status)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title={branch.status === 'ACTIVE' ? 'Disable' : 'Enable'}>
+                            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" title={branch.status === 'ACTIVE' ? 'Disable' : 'Enable'}>
                             <Power className="h-4 w-4" />
                           </button>
                         </div>
@@ -304,8 +284,8 @@ export default function BranchManagement() {
                 ))}
                 {filteredBranches.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500 text-sm">
-                      No branches found matching your search.
+                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                      {t('branches.noBranches')}
                     </td>
                   </tr>
                 )}
@@ -317,10 +297,10 @@ export default function BranchManagement() {
 
       {/* Add New Branch Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-slate-800">Add New Branch</h2>
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('branches.modalAddTitle')}</h2>
               <button onClick={() => {
                 setIsAddModalOpen(false);
                 setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
@@ -331,13 +311,13 @@ export default function BranchManagement() {
             
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Parent Merchant</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.selectMerchant')}</label>
                 <select 
                   value={newBranch.merchantId}
                   onChange={(e) => setNewBranch({...newBranch, merchantId: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                  <option value="">Select a Merchant...</option>
+                  <option value="">{t('branches.selectMerchant')}...</option>
                   {merchants && merchants.length > 0 ? (
                     merchants.map((merchant, index) => (
                       <option 
@@ -354,75 +334,75 @@ export default function BranchManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Branch Code</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.branchCode')}</label>
                 <input 
                   type="text" 
                   value={newBranch.branchCode} 
                   onChange={(e) => setNewBranch({...newBranch, branchCode: e.target.value})}
                   placeholder="e.g. B-001"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Branch Name</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.branchName')}</label>
                 <input 
                   type="text" 
                   value={newBranch.branchName} 
                   onChange={(e) => setNewBranch({...newBranch, branchName: e.target.value})}
                   placeholder="e.g. Downtown Outlet"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.address')}</label>
                 <input 
                   type="text" 
                   value={newBranch.address} 
                   onChange={(e) => setNewBranch({...newBranch, address: e.target.value})}
                   placeholder="Street address"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.city')}</label>
                   <input 
                     type="text" 
                     value={newBranch.city} 
                     onChange={(e) => setNewBranch({...newBranch, city: e.target.value})}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.phone')}</label>
                   <input 
                     type="text" 
                     value={newBranch.phone} 
                     onChange={(e) => setNewBranch({...newBranch, phone: e.target.value})}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-end space-x-3">
               <button 
                 onClick={() => {
                   setIsAddModalOpen(false);
                   setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
                 }}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button 
                 onClick={handleAddSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
               >
-                Create Branch
+                {t('branches.createBranch')}
               </button>
             </div>
           </div>
@@ -431,10 +411,10 @@ export default function BranchManagement() {
 
       {/* Edit Branch Modal */}
       {isEditModalOpen && editingBranch && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-slate-800">Edit Branch</h2>
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('branches.modalEditTitle')}</h2>
               <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
@@ -442,59 +422,59 @@ export default function BranchManagement() {
             
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Parent Merchant</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.colMerchant')}</label>
                 <input 
                   type="text" 
                   disabled
                   value={editingBranch.merchantName} 
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-500 sm:text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Branch Name</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.branchName')}</label>
                 <input 
                   type="text" 
                   value={editingBranch.branchName} 
                   onChange={(e) => setEditingBranch({...editingBranch, branchName: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.city')}</label>
                   <input 
                     type="text" 
                     value={editingBranch.city} 
                     onChange={(e) => setEditingBranch({...editingBranch, city: e.target.value})}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.phone')}</label>
                   <input 
                     type="text" 
                     value={editingBranch.phone} 
                     onChange={(e) => setEditingBranch({...editingBranch, phone: e.target.value})}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-end space-x-3">
               <button 
                 onClick={() => setIsEditModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button 
                 onClick={handleSaveEdit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
               >
-                Save Changes
+                {t('branches.saveChanges')}
               </button>
             </div>
           </div>
