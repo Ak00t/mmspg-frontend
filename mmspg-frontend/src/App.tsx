@@ -18,6 +18,8 @@ import StaffUsers from './views/admin/StaffUsers';
 import StaffProfile from './views/admin/StaffProfile';
 // Merchant Views
 import MerchantDashboard from './views/merchant/Dashboard';
+import MerchantReports from './views/merchant/Reports';
+import MerchantWebhooks from './views/merchant/Webhooks';
 import ResetPassword from './views/auth/ResetPassword';
 import ForgotPassword from './views/auth/ForgotPassword';
 
@@ -35,7 +37,7 @@ export default function App() {
   <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Protected Admin Routes */}
-        <Route path="/admin" element={<ProtectedRoute />}>
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN', 'STAFF', 'AUDITOR']} />}>
           <Route element={<Layout />}>
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="merchant-approvals" element={<MerchantApprovals />} />
@@ -48,7 +50,7 @@ export default function App() {
         </Route>
 
         {/* 🔴 Protected Support Routes (အသစ်ထပ်ထည့်ထားသောအပိုင်း) */}
-        <Route path="/support" element={<ProtectedRoute />}>
+        <Route path="/support" element={<ProtectedRoute allowedRoles={['SUPPORT', 'ADMIN']} />}>
           <Route element={<Layout />}>
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="merchant-approvals" element={<MerchantApprovals />} />
@@ -58,9 +60,11 @@ export default function App() {
         </Route>
 
         {/* Protected Merchant Routes */}
-        <Route path="/merchant" element={<ProtectedRoute />}>
+        <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
           <Route element={<Layout />}>
             <Route path="dashboard" element={<MerchantDashboard />} />
+            <Route path="reports" element={<MerchantReports />} />
+            <Route path="webhooks" element={<MerchantWebhooks />} />
           </Route>
         </Route>
 
