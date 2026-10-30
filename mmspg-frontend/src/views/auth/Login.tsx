@@ -211,7 +211,7 @@ export default function Login() {
               <span className="block text-sm text-slate-700">
                 Remember me
               </span>
-            </label>
+            </div>
             <div className="text-sm">
               {/* 🔴 href အစား onClick ဖြင့် navigate ကို အသုံးပြုထားပါသည် */}
               <a
