@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // 🔴 Added
+import { useNavigate } from 'react-router-dom';
 import { Clock, Activity, Monitor, Users, FileText, CheckCircle } from 'lucide-react';
+import { getAdminDashboardSummary } from '../../services/adminDashboardApi';
 
 interface RecentRequest {
   requestId: string;
@@ -19,62 +20,36 @@ interface DashboardData {
 }
 
 export default function AdminDashboard() {
-  const navigate = useNavigate(); // 🔴 Added
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError("No token found. Please login.");
-        setLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const summary = await getAdminDashboardSummary();
+        const volume = summary.totalVolumeToday != null ? Number(summary.totalVolumeToday) : 0;
+        const formattedVolume = `MMK ${volume.toLocaleString()}`;
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch merchants');
-        }
-
-        const merchants = await response.json();
-
-        const pendingCount = merchants.filter((m: any) => m.status === 'PENDING').length;
-        const activeCount = merchants.filter((m: any) => m.status === 'ACTIVE').length;
-
-        const sortedMerchants = [...merchants].sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        const top5Merchants = sortedMerchants.slice(0, 5);
-
-        const recentRequests = top5Merchants.map((m: any) => ({
-          requestId: m.merchantCode || "N/A",
-          merchantName: m.merchantName || "Unknown",
-          businessType: m.riskLevel || "N/A", 
-          dateApplied: m.createdAt ? new Date(m.createdAt).toLocaleDateString() : "N/A",
-          status: m.status || "PENDING"
+        const recentRequests = (summary.recentMerchantRequests || []).map((req) => ({
+          requestId: req.requestId ? String(req.requestId).substring(0, 8) + '...' : 'N/A',
+          merchantName: req.merchantName || 'Unknown',
+          businessType: req.businessType || 'N/A',
+          dateApplied: req.date ? new Date(req.date).toLocaleDateString() : 'N/A',
+          status: req.status || 'PENDING'
         }));
 
         setDashboardData({
-          pendingApprovals: pendingCount,
-          totalVolume: "MMK 0", 
-          activeGateways: activeCount,
-          internalStaff: 0, 
+          pendingApprovals: summary.totalPendingApprovals || 0,
+          totalVolume: formattedVolume,
+          activeGateways: summary.activeGateways || 0,
+          internalStaff: summary.internalStaff || 0,
           recentRequests: recentRequests
         });
-
-      } catch (err) {
-        console.error("Error calculating dashboard data:", err);
-        setError("Failed to load real data");
+      } catch (err: any) {
+        console.error("Error fetching admin dashboard summary:", err);
+        setError(err.response?.data?.message || err.message || "Failed to load dashboard data");
       } finally {
         setLoading(false);
       }

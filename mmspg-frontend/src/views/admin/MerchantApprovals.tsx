@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Edit, Ban, X, Search, Plus, Loader2, Check, RefreshCw } from 'lucide-react';
+import {
+  getMerchants,
+  registerMerchant,
+  updateMerchant,
+  updateMerchantStatus,
+  approveMerchant,
+  rejectMerchant
+} from '../../services/adminManagementApi';
 
 interface Merchant {
   id: string;
@@ -39,21 +47,8 @@ export default function MerchantApprovals() {
 
   useEffect(() => {
     const fetchRealMerchants = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!response.ok) throw new Error('Failed to fetch merchants');
-
-        const data = await response.json();
+        const data = await getMerchants();
         const dataArray = Array.isArray(data) ? data : (data.content || []);
 
         const realMerchants = dataArray
@@ -104,22 +99,7 @@ export default function MerchantApprovals() {
 
   const handleRegisterMerchant = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(addFormData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to register merchant');
-      }
-
-      const result = await response.json();
+      const result = await registerMerchant(addFormData);
 
       setMerchants(prevMerchants => [
         {
@@ -133,62 +113,48 @@ export default function MerchantApprovals() {
       ]);
 
       closeModal();
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant registered successfully!");
       
     } catch (error: any) {
       console.error("Registration error:", error);
-      alert(error.message || "Error registering merchant.");
+      alert(error.response?.data?.error || error.message || "Error registering merchant.");
     }
   };
 
   const handleSaveChanges = async () => {
     if (!selectedMerchant) return;
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${selectedMerchant.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ businessName: editName, merchantCode: editRegNum })
-      });
-
-      if (!response.ok) throw new Error('Failed to update in database');
+      await updateMerchant(selectedMerchant.id, { businessName: editName, merchantCode: editRegNum });
 
       setMerchants(prevMerchants => 
         prevMerchants.map(m => m.id === selectedMerchant.id ? { ...m, merchantName: editName, regNumber: editRegNum } : m)
       );
       closeModal();
       
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant updated successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Update error:", error);
-      alert("Error updating database.");
+      alert(error.response?.data?.message || "Error updating database.");
     }
   };
 
   const handleConfirmSuspend = async () => {
     if (!selectedMerchant) return;
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${selectedMerchant.id}/status?status=SUSPENDED`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ reason: suspendReason })
-      });
-
-      if (!response.ok) throw new Error('Failed to suspend in database');
+      await updateMerchantStatus(selectedMerchant.id, 'SUSPENDED', suspendReason);
 
       setMerchants(prevMerchants => 
         prevMerchants.map(m => m.id === selectedMerchant.id ? { ...m, status: 'SUSPENDED' } : m)
       );
       closeModal();
       
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant suspended successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Suspend error:", error);
-      alert("Error suspending merchant.");
+      alert(error.response?.data?.message || "Error suspending merchant.");
     }
   };
 
@@ -199,21 +165,15 @@ export default function MerchantApprovals() {
     if (!window.confirm("Are you sure you want to approve this merchant?")) return;
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${id}/approve`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) throw new Error('Failed to approve merchant');
+      await approveMerchant(id);
 
       setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'ACTIVE' } : m));
       
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant approved successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Approve error:", error);
-      alert("Error approving merchant.");
+      alert(error.response?.data?.error || "Error approving merchant.");
     }
   };
 
@@ -222,25 +182,15 @@ export default function MerchantApprovals() {
     if (reason === null) return; 
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${id}/reject`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify({ reason: reason || 'No reason provided' })
-      });
-
-      if (!response.ok) throw new Error('Failed to reject merchant');
+      await rejectMerchant(id, reason);
 
       setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'REJECTED' } : m));
       
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant rejected successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Reject error:", error);
-      alert("Error rejecting merchant.");
+      alert(error.response?.data?.error || "Error rejecting merchant.");
     }
   };
 
@@ -248,25 +198,15 @@ export default function MerchantApprovals() {
     if (!window.confirm("Are you sure you want to reactivate this suspended merchant?")) return;
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${id}/status?status=ACTIVE`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify({ reason: "Reactivated by Admin" })
-      });
-
-      if (!response.ok) throw new Error('Failed to reactivate merchant');
+      await updateMerchantStatus(id, 'ACTIVE', 'Reactivated by Admin');
 
       setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'ACTIVE' } : m));
       
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant reactivated successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Reactivate error:", error);
-      alert("Error reactivating merchant.");
+      alert(error.response?.data?.message || "Error reactivating merchant.");
     }
   };
 

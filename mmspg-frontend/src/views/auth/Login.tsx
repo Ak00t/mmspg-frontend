@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Store, ShieldCheck, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { api } from '../../services/api';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -26,19 +27,8 @@ export default function Login() {
     try {
       if (portalType === 'MERCHANT') {
         // 🏪 Merchant Login Endpoint
-        const response = await fetch('http://127.0.0.1:8004/api/v1/merchant-portal/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Invalid merchant credentials');
-        }
+        const response = await api.post('/api/v1/merchant-portal/auth/login', { email, password });
+        const data = response.data;
 
         // Store Merchant session data
         localStorage.setItem('token', data.token);
@@ -52,19 +42,8 @@ export default function Login() {
         navigate('/merchant/dashboard');
       } else {
         // 🛡️ Staff / Admin Login Endpoint
-        const response = await fetch('http://127.0.0.1:8004/api/v1/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Invalid staff credentials');
-        }
+        const response = await api.post('/api/v1/login', { email, password });
+        const data = response.data;
 
         // Store Staff session data
         localStorage.setItem('token', data.token);
@@ -78,13 +57,13 @@ export default function Login() {
         } else if (data.role === 'SUPPORT') {
           navigate('/support/dashboard');
         } else if (data.role === 'AUDITOR') {
-          navigate('/auditor/dashboard');
+          navigate('/admin/dashboard');
         } else {
           navigate('/admin/dashboard');
         }
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login. Please try again.');
+      setError(err.response?.data?.message || err.message || 'An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }

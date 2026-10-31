@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { User, Camera, Loader2, CheckCircle2, AlertCircle, UploadCloud } from 'lucide-react';
+import { api } from '../services/api';
 
 interface ProfilePictureUploadProps {
   currentImageUrl?: string | null;
@@ -10,7 +11,7 @@ interface ProfilePictureUploadProps {
 export default function ProfilePictureUpload({
   currentImageUrl,
   onUploadSuccess,
-  apiEndpoint = 'http://127.0.0.1:8004/api/v1/admin/staff-users/profile-picture',
+  apiEndpoint = '/api/v1/admin/staff-users/profile-picture',
 }: ProfilePictureUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,33 +81,17 @@ export default function ProfilePictureUpload({
     setSuccess(null);
     setIsUploading(true);
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Authentication token not found. Please log in again.');
-      setIsUploading(false);
-      return;
-    }
-
     try {
       const formData = new FormData();
-      // 'file' is the standard parameter name for MultipartFile in Spring Boot
       formData.append('file', file);
 
-      // NOTE: Do NOT set 'Content-Type': 'multipart/form-data'. 
-      // The browser automatically sets it with the proper boundary parameter.
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
+      const response = await api.post(apiEndpoint, formData, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
         },
-        body: formData,
       });
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.message || data?.error || 'Failed to upload profile picture.');
-      }
+      const data = response.data;
 
       setSuccess('Profile picture updated successfully!');
       setSelectedFile(null);
@@ -116,7 +101,7 @@ export default function ProfilePictureUpload({
         onUploadSuccess(data.imageUrl || data.url || data.path);
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred while uploading. Please try again.');
+      setError(err.response?.data?.message || err.message || 'An error occurred while uploading. Please try again.');
     } finally {
       setIsUploading(false);
     }

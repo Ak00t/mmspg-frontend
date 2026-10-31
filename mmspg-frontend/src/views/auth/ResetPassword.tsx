@@ -11,6 +11,7 @@ import {
   ArrowRight,
   ArrowLeft
 } from 'lucide-react';
+import { api } from '../../services/api';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -23,7 +24,6 @@ export default function ResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -51,26 +51,14 @@ export default function ResetPassword() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/auth/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token,
-          newPassword,
-        }),
+      await api.post('/api/v1/auth/reset-password', {
+        token,
+        newPassword,
       });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.message || 'Failed to reset password. The link may have expired or is invalid.');
-      }
 
       setIsSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred. Please try again.');
+      setError(err.response?.data?.message || err.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }

@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Edit, ShieldAlert, X, AlertTriangle, RefreshCw } from 'lucide-react'; // 🔴 RefreshCw ကို ထပ်ထည့်ထားပါသည်
+import { Search, Plus, Edit, ShieldAlert, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import {
+  getTerminals,
+  getMerchants,
+  getBranches,
+  provisionTerminal,
+  updateTerminal,
+  suspendTerminal,
+  reactivateTerminal
+} from '../../services/adminManagementApi';
 
 interface Terminal {
   terminalId: string;
@@ -42,19 +51,9 @@ export default function AdminTerminals() {
   }, []);
 
   const fetchTerminals = async () => {
-    const token = localStorage.getItem('token'); 
-    if (!token) {
-        setLoading(false);
-        return; 
-    }
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/terminals', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTerminals(data);
-      }
+      const data = await getTerminals();
+      setTerminals(data);
     } catch (error) {
       console.error('Error fetching terminals:', error);
     } finally {
@@ -63,18 +62,10 @@ export default function AdminTerminals() {
   };
 
   const fetchMerchantsAndBranches = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
     try {
-      const merRes = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (merRes.ok) setMerchants(await merRes.json());
-
-      const braRes = await fetch('http://127.0.0.1:8004/api/v1/admin/branches', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (braRes.ok) setBranches(await braRes.json());
+      const [merData, braData] = await Promise.all([getMerchants(), getBranches()]);
+      setMerchants(merData);
+      setBranches(braData);
     } catch (error) {
       console.error('Error fetching dropdown data:', error);
     }
@@ -85,112 +76,66 @@ export default function AdminTerminals() {
       alert("Please fill in all required fields.");
       return;
     }
-    const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/terminals/provision', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(newTerminal)
-      });
-      if (response.ok) {
-        fetchTerminals();
-        setIsAddModalOpen(false);
-        setNewTerminal({ merchantId: '', branchId: '', terminalName: '', terminalType: 'PHYSICAL_POS', terminalCode: '' });
-        
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('Terminal provisioned successfully!');
-      } else {
-        alert('Failed to provision terminal.');
-      }
+      await provisionTerminal(newTerminal);
+      fetchTerminals();
+      setIsAddModalOpen(false);
+      setNewTerminal({ merchantId: '', branchId: '', terminalName: '', terminalType: 'PHYSICAL_POS', terminalCode: '' });
+      
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('Terminal provisioned successfully!');
     } catch (error) {
       console.error('Error provisioning terminal:', error);
+      alert('Failed to provision terminal.');
     }
   };
 
   const handleSaveEdit = async () => {
     if (!editingTerminal) return;
-    const token = localStorage.getItem('token');
     try {
-    const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/terminals/${editingTerminal.terminalId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          terminalName: editingTerminal.terminalName,
-          terminalType: editingTerminal.terminalType
-        })
+      await updateTerminal(editingTerminal.terminalId, {
+        terminalName: editingTerminal.terminalName,
+        terminalType: editingTerminal.terminalType
       });
-      if (response.ok) {
-        setTerminals(terminals.map(t => t.terminalId === editingTerminal.terminalId ? editingTerminal : t));
-        setIsEditModalOpen(false);
-        setEditingTerminal(null);
-        
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('Terminal updated successfully!');
-      } else {
-        alert('Failed to update terminal.');
-      }
+      setTerminals(terminals.map(t => t.terminalId === editingTerminal.terminalId ? editingTerminal : t));
+      setIsEditModalOpen(false);
+      setEditingTerminal(null);
+      
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('Terminal updated successfully!');
     } catch (error) {
       console.error('Error updating terminal:', error);
+      alert('Failed to update terminal.');
     }
   };
 
   const handleSuspendSubmit = async () => {
     if (!suspendingTerminal) return;
-    const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/terminals/${suspendingTerminal.terminalId}/suspend`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ reason: suspendReason })
-      });
-      if (response.ok) {
-        setTerminals(terminals.map(t => t.terminalId === suspendingTerminal.terminalId ? { ...t, status: 'SUSPENDED' } : t));
-        setIsSuspendModalOpen(false);
-        setSuspendingTerminal(null);
-        setSuspendReason('');
-        
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('Terminal suspended successfully!');
-      } else {
-        alert('Failed to suspend terminal.');
-      }
+      await suspendTerminal(suspendingTerminal.terminalId, suspendReason);
+      setTerminals(terminals.map(t => t.terminalId === suspendingTerminal.terminalId ? { ...t, status: 'SUSPENDED' } : t));
+      setIsSuspendModalOpen(false);
+      setSuspendingTerminal(null);
+      setSuspendReason('');
+      
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('Terminal suspended successfully!');
     } catch (error) {
       console.error('Error suspending terminal:', error);
+      alert('Failed to suspend terminal.');
     }
   };
 
-  // 🔴 အသစ်ထပ်ထည့်ထားသော Reactivate Function
   const handleReactivate = async (id: string) => {
     if (!window.confirm("Are you sure you want to reactivate this terminal?")) return;
-    const token = localStorage.getItem('token');
     try {
-      // ⚠️ မှတ်ချက်: Backend API လမ်းကြောင်းသည် သင်ရေးထားသော လမ်းကြောင်းအမှန်ဖြစ်ရန် လိုအပ်ပါသည်။ (ဥပမာ: /reactivate သို့မဟုတ် /unsuspend)
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/terminals/${id}/reactivate`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        // အောင်မြင်ပါက ဇယားတွင် Status ကို ONLINE ဟု ချက်ချင်းပြောင်းပေးမည်
-        setTerminals(terminals.map(t => t.terminalId === id ? { ...t, status: 'ONLINE' } : t));
-        
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('Terminal reactivated successfully!');
-      } else {
-        alert('Failed to reactivate terminal.');
-      }
+      await reactivateTerminal(id);
+      setTerminals(terminals.map(t => t.terminalId === id ? { ...t, status: 'ONLINE' } : t));
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('Terminal reactivated successfully!');
     } catch (error) {
       console.error('Error reactivating terminal:', error);
+      alert('Failed to reactivate terminal.');
     }
   };
 

@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Building2, Edit, Power, X } from 'lucide-react'; 
+import {
+  getBranches,
+  getMerchants,
+  createBranch,
+  updateBranch,
+  updateBranchStatus
+} from '../../services/adminManagementApi';
 
 interface Branch {
   branchId: string;
@@ -38,29 +45,8 @@ export default function BranchManagement() {
   }, []);
 
   const fetchBranches = async () => {
-    const token = localStorage.getItem('token'); 
-    if (!token) {
-        console.error("No token found. Please login.");
-        setLoading(false);
-        return; 
-    }
-
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/branches', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        }
-      });
-
-      if (response.status === 401 || response.status === 403) {
-         console.error("Unauthorized! Please login again.");
-         throw new Error('Unauthorized');
-      }
-      if (!response.ok) throw new Error('Network response was not ok');
-      
-      const data = await response.json();
+      const data = await getBranches();
       setBranches(data);
     } catch (error) {
       console.error('Error fetching branches:', error);
@@ -70,16 +56,9 @@ export default function BranchManagement() {
   };
 
   const fetchMerchants = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setMerchants(data);
-      }
+      const data = await getMerchants();
+      setMerchants(data);
     } catch (error) {
       console.error('Error fetching merchants:', error);
     }
@@ -91,31 +70,17 @@ export default function BranchManagement() {
       return;
     }
 
-    const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/branches', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(newBranch)
-      });
-
-      if (response.ok) {
-        setIsAddModalOpen(false);
-        setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
-        fetchBranches(); 
-        
-        // 🔴 Trigger real-time notification
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert("Branch added successfully!"); 
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        alert(`Failed to add branch: ${errorData.error || 'Unknown error'}`);
-      }
-    } catch (error) {
+      await createBranch(newBranch);
+      setIsAddModalOpen(false);
+      setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
+      fetchBranches(); 
+      
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert("Branch added successfully!"); 
+    } catch (error: any) {
       console.error('Error adding branch:', error);
+      alert(`Failed to add branch: ${error.response?.data?.error || error.message || 'Unknown error'}`);
     }
   };
 
@@ -124,26 +89,14 @@ export default function BranchManagement() {
     if (!window.confirm(`Are you sure you want to ${action} this branch?`)) return;
 
     const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/branches/${branchId}/status`, { 
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        setBranches(branches.map(b => b.branchId === branchId ? { ...b, status: newStatus } : b));
-        
-        // 🔴 Trigger real-time notification
-        window.dispatchEvent(new Event('refreshNotifications'));
-      } else {
-        alert('Failed to update branch status.');
-      }
+      await updateBranchStatus(branchId);
+      setBranches(branches.map(b => b.branchId === branchId ? { ...b, status: newStatus } : b));
+      window.dispatchEvent(new Event('refreshNotifications'));
     } catch (error) {
       console.error('Error updating status:', error);
+      alert('Failed to update branch status.');
     }
   };
 
@@ -154,33 +107,20 @@ export default function BranchManagement() {
 
   const handleSaveEdit = async () => {
     if (!editingBranch) return;
-    const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/branches/${editingBranch.branchId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          branchName: editingBranch.branchName,
-          city: editingBranch.city,
-          phone: editingBranch.phone
-        })
+      await updateBranch(editingBranch.branchId, {
+        branchName: editingBranch.branchName,
+        city: editingBranch.city,
+        phone: editingBranch.phone
       });
 
-      if (response.ok) {
-        setBranches(branches.map(b => b.branchId === editingBranch.branchId ? editingBranch : b));
-        setIsEditModalOpen(false);
-        setEditingBranch(null);
-        
-        // 🔴 Trigger real-time notification
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('Branch updated successfully!');
-      } else {
-        alert('Failed to update branch details.');
-      }
+      setBranches(branches.map(b => b.branchId === editingBranch.branchId ? editingBranch : b));
+      setIsEditModalOpen(false);
+      setEditingBranch(null);
+      
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('Branch updated successfully!');
     } catch (error) {
       console.error('Error updating branch:', error);
     }

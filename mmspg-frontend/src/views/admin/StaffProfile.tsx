@@ -16,6 +16,11 @@ import {
   Calendar,
   ShieldCheck,
 } from 'lucide-react';
+import {
+  getStaffProfile,
+  getStaffLoginActivity,
+  updateStaffPassword
+} from '../../services/adminManagementApi';
 
 interface LoginActivity {
   id: string;
@@ -49,43 +54,35 @@ export default function StaffProfile() {
     if (storedEmail) setUserEmail(storedEmail);
     if (storedAvatar) setProfileImageUrl(storedAvatar);
 
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Backend မှ Profile အချက်အလက် ယူခြင်း
-      fetch('http://127.0.0.1:8004/api/v1/admin/staff-users/profile', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data) {
-            if (data.fullName) setUserName(data.fullName);
-            if (data.email) setUserEmail(data.email);
-            if (data.role) setUserRole(data.role);
-            if (data.status) setUserStatus(data.status);
-            if (data.profileImageUrl) {
-              const fullUrl = data.profileImageUrl.startsWith('http')
-                ? data.profileImageUrl
-                : `http://127.0.0.1:8004${data.profileImageUrl}`;
-              setProfileImageUrl(fullUrl);
-              localStorage.setItem('userAvatar', fullUrl);
-              window.dispatchEvent(new Event('avatarUpdated'));
-            }
+    // Backend မှ Profile အချက်အလက် ယူခြင်း
+    getStaffProfile()
+      .then(data => {
+        if (data) {
+          if (data.fullName) setUserName(data.fullName);
+          if (data.email) setUserEmail(data.email);
+          if (data.role) setUserRole(data.role);
+          if (data.status) setUserStatus(data.status);
+          if (data.profileImageUrl) {
+            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
+            const fullUrl = data.profileImageUrl.startsWith('http')
+              ? data.profileImageUrl
+              : `${apiBase}${data.profileImageUrl}`;
+            setProfileImageUrl(fullUrl);
+            localStorage.setItem('userAvatar', fullUrl);
+            window.dispatchEvent(new Event('avatarUpdated'));
           }
-        })
-        .catch(err => console.error('Failed to load profile:', err));
+        }
+      })
+      .catch(err => console.error('Failed to load profile:', err));
 
-      // 🔴 Backend မှ Real Login Activity များ လှမ်းယူခြင်း
-      fetch('http://127.0.0.1:8004/api/v1/admin/staff-users/profile/login-activity', {
-        headers: { 'Authorization': `Bearer ${token}` }
+    // Backend မှ Real Login Activity များ လှမ်းယူခြင်း
+    getStaffLoginActivity()
+      .then(data => {
+        if (Array.isArray(data)) {
+          setLoginActivities(data);
+        }
       })
-        .then(res => res.ok ? res.json() : [])
-        .then(data => {
-          if (Array.isArray(data)) {
-            setLoginActivities(data);
-          }
-        })
-        .catch(err => console.error('Failed to load login activities:', err));
-    }
+      .catch(err => console.error('Failed to load login activities:', err));
   }, []);
 
   // 3. Change Password Form State
@@ -103,7 +100,7 @@ export default function StaffProfile() {
   }>({ type: null, message: '' });
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordStatus({ type: null, message: '' });
 
@@ -131,40 +128,24 @@ export default function StaffProfile() {
       return;
     }
 
-    // Backend သို့ Password ပို့ရန် API ခေါ်ဆိုမှု (သို့မဟုတ် ယာယီ Simulation)
     setIsUpdatingPassword(true);
-    const token = localStorage.getItem('token');
-    
-    fetch('http://127.0.0.1:8004/api/v1/admin/staff-users/profile/password', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ currentPassword, newPassword })
-    })
-      .then(async res => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to update password');
-        return data;
-      })
-      .then(() => {
-        setIsUpdatingPassword(false);
-        setPasswordStatus({
-          type: 'success',
-          message: 'Your password has been successfully updated.',
-        });
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-      })
-      .catch(err => {
-        setIsUpdatingPassword(false);
-        setPasswordStatus({
-          type: 'error',
-          message: err.message || 'Something went wrong.',
-        });
+    try {
+      await updateStaffPassword({ currentPassword, newPassword });
+      setPasswordStatus({
+        type: 'success',
+        message: 'Your password has been successfully updated.',
       });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setPasswordStatus({
+        type: 'error',
+        message: err.response?.data?.error || err.message || 'Failed to update password. Please check your current password.',
+      });
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   };
 
   const handleProfileImageUploaded = (newUrl: string) => {

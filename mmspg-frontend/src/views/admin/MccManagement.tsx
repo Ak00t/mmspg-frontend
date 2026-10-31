@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Tag, Edit, Trash2, X } from 'lucide-react';
+import {
+  getMccs,
+  createMcc,
+  updateMcc,
+  deleteMcc
+} from '../../services/adminManagementApi';
 
 interface MccCode {
   id: number; 
@@ -28,30 +34,8 @@ export default function MccConfiguration() {
   }, []);
 
   const fetchMccCodes = async () => {
-    const token = localStorage.getItem('token'); 
-    
-    if (!token) {
-        console.error("No token found. Please login.");
-        setLoading(false);
-        return; 
-    }
-
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/mcc', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        }
-      });
-
-      if (response.status === 401 || response.status === 403) {
-         console.error("Unauthorized! Please login again.");
-         throw new Error('Unauthorized');
-      }
-      if (!response.ok) throw new Error('Network response was not ok');
-      
-      const data = await response.json();
+      const data = await getMccs();
       setMccCodes(data);
     } catch (error) {
       console.error('Error fetching MCC codes:', error);
@@ -67,34 +51,17 @@ export default function MccConfiguration() {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/mcc', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(newMcc)
-      });
+      const createdMcc = await createMcc(newMcc);
+      setMccCodes([...mccCodes, createdMcc]);
+      setIsAddModalOpen(false);
+      setNewMcc({ mccCode: '', mccName: '', description: '' });
 
-      if (response.ok) {
-        const createdMcc = await response.json();
-        // UI သို့ Data အသစ်ကို ချက်ချင်းပေါင်းထည့်မည်
-        setMccCodes([...mccCodes, createdMcc]);
-        // Modal ကို ပိတ်ပြီး Form ကို Reset ပြန်လုပ်မည်
-        setIsAddModalOpen(false);
-        setNewMcc({ mccCode: '', mccName: '', description: '' });
-
-        // 🔴 Trigger real-time notification
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('MCC Code added successfully!');
-      } else {
-        alert('Failed to add new MCC.');
-      }
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('MCC Code added successfully!');
     } catch (error) {
       console.error('Error adding MCC:', error);
+      alert('Failed to add new MCC.');
     }
   };
 
@@ -106,35 +73,23 @@ export default function MccConfiguration() {
   // ၂။ Edit လုပ်မည့် Function
   const handleSaveEdit = async () => {
     if (!editingMcc) return;
-    const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/mcc/${editingMcc.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          mccCode: editingMcc.mccCode,
-          mccName: editingMcc.mccName,
-          description: editingMcc.description
-        })
+      await updateMcc(editingMcc.id, {
+        mccCode: editingMcc.mccCode,
+        mccName: editingMcc.mccName,
+        description: editingMcc.description
       });
 
-      if (response.ok) {
-        setMccCodes(mccCodes.map(m => m.id === editingMcc.id ? editingMcc : m));
-        setIsEditModalOpen(false);
-        setEditingMcc(null);
+      setMccCodes(mccCodes.map(m => m.id === editingMcc.id ? editingMcc : m));
+      setIsEditModalOpen(false);
+      setEditingMcc(null);
 
-        // 🔴 Trigger real-time notification
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('MCC Code updated successfully!');
-      } else {
-        alert('Failed to update MCC details.');
-      }
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('MCC Code updated successfully!');
     } catch (error) {
       console.error('Error updating MCC:', error);
+      alert('Failed to update MCC details.');
     }
   };
 
@@ -142,25 +97,12 @@ export default function MccConfiguration() {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Are you sure you want to delete this MCC code?')) return;
     
-    const token = localStorage.getItem('token');
-    
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/mcc/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await deleteMcc(id);
+      setMccCodes(mccCodes.filter(m => m.id !== id));
 
-      if (response.ok) {
-        setMccCodes(mccCodes.filter(m => m.id !== id));
-
-        // 🔴 Trigger real-time notification
-        window.dispatchEvent(new Event('refreshNotifications'));
-        alert('MCC Code deleted successfully!');
-      } else {
-        alert('Failed to delete MCC code.');
-      }
+      window.dispatchEvent(new Event('refreshNotifications'));
+      alert('MCC Code deleted successfully!');
     } catch (error) {
       console.error('Error deleting MCC:', error);
     }

@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Edit, Trash2, Power, Shield, X } from 'lucide-react';
+import {
+  getStaffUsers,
+  createStaffUser,
+  updateStaffUser,
+  deleteStaffUser,
+  updateStaffUserStatus
+} from '../../services/adminManagementApi';
 
 interface StaffUser {
   id: string;            
@@ -34,17 +41,9 @@ export default function StaffUsers() {
   }, []);
 
   const fetchUsers = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/staff-users', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
-      }
+      const data = await getStaffUsers();
+      setUsers(data);
     } catch (error) {
       console.error('Error fetching staff users:', error);
     } finally {
@@ -53,57 +52,33 @@ export default function StaffUsers() {
   };
 
   const handleAddSubmit = async () => {
-    // 🔴 Password အပါအဝင် အချက်အလက်စုံလင်စွာ ထည့်သွင်းရန် စစ်ဆေးခြင်း
     if (!newUser.name || !newUser.email || !newUser.password) {
       alert("Please fill in all required fields, including the password.");
       return;
     }
 
-    const token = localStorage.getItem('token');
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/staff-users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(newUser)
-      });
+      await createStaffUser(newUser);
+      setIsAddModalOpen(false);
+      setNewUser({ name: '', email: '', role: 'SUPPORT', password: '' });
+      fetchUsers(); 
 
-      if (response.ok) {
-        setIsAddModalOpen(false);
-        setNewUser({ name: '', email: '', role: 'SUPPORT', password: '' });
-        fetchUsers(); 
-
-        window.dispatchEvent(new Event('refreshNotifications'));
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        alert(`Failed to create user: ${errorData.error || 'Unknown error'}`);
-      }
-    } catch (error) {
+      window.dispatchEvent(new Event('refreshNotifications'));
+    } catch (error: any) {
       console.error('Error creating user:', error);
+      alert(`Failed to create user: ${error.response?.data?.error || error.message || 'Unknown error'}`);
     }
   };
 
   const handleDeleteClick = async (id: string) => {
     if (!window.confirm("Are you sure you want to delete this staff user? This action cannot be undone.")) return;
     
-    const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/staff-users/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        setUsers(users.filter(u => u.id !== id));
-      } else {
-        alert("Failed to delete staff user. Please try again.");
-      }
+      await deleteStaffUser(id);
+      setUsers(users.filter(u => u.id !== id));
     } catch (error) {
       console.error('Error deleting user:', error);
+      alert("Failed to delete staff user. Please try again.");
     }
   };
 
@@ -114,58 +89,36 @@ export default function StaffUsers() {
 
   const handleSaveEdit = async () => {
     if (!editingUser) return;
-    const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/staff-users/${editingUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          fullName: editingUser.name, 
-          email: editingUser.email,
-          role: editingUser.role
-        })
+      await updateStaffUser(editingUser.id, {
+        fullName: editingUser.name, 
+        email: editingUser.email,
+        role: editingUser.role
       });
 
-      if (response.ok) {
-        setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
-        setIsEditModalOpen(false);
-        setEditingUser(null);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        alert(`Failed to update user: ${errorData.error || 'Unknown error'}`);
-      }
-    } catch (error) {
+      setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
+      setIsEditModalOpen(false);
+      setEditingUser(null);
+    } catch (error: any) {
       console.error('Error updating user:', error);
+      alert(`Failed to update user: ${error.response?.data?.error || error.message || 'Unknown error'}`);
     }
   };
 
   const toggleStatus = async (id: string) => {
     if (!window.confirm("Are you sure you want to change this user's status?")) return;
 
-    const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/staff-users/${id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        setUsers(users.map(user => 
-          user.id === id 
-            ? { ...user, status: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' } 
-            : user
-        ));
-      } else {
-        alert("Failed to toggle status.");
-      }
+      await updateStaffUserStatus(id);
+      setUsers(users.map(user => 
+        user.id === id 
+          ? { ...user, status: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' } 
+          : user
+      ));
     } catch (error) {
       console.error('Error toggling status:', error);
+      alert("Failed to toggle status.");
     }
   };
 

@@ -12,9 +12,11 @@ import {
   Menu
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-
-// Backend Base URL matching your project's configuration
-const API_BASE_URL = 'http://127.0.0.1:8004';
+import {
+  getNotifications,
+  markNotificationAsRead,
+  getStaffProfile
+} from '../services/adminManagementApi';
 
 export interface NotificationItem {
   id: string | number;
@@ -55,27 +57,13 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
   // 1. Fetch Notifications
   // ----------------------------------------------------------------------
   const fetchNotifications = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/notifications`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        // Support array response or paginated { content: [...] } / { data: [...] }
-        const items: NotificationItem[] = Array.isArray(data)
-          ? data
-          : (data.content || data.data || data.notifications || []);
-        
-        setNotifications(items);
-      }
+      const data = await getNotifications();
+      const items: NotificationItem[] = Array.isArray(data)
+        ? data
+        : (data.content || data.data || data.notifications || []);
+      
+      setNotifications(items);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
     }
@@ -143,17 +131,14 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
 
     window.addEventListener('avatarUpdated', handleAvatarUpdate);
 
-    const token = localStorage.getItem('token');
-    if (token && !localStorage.getItem('userAvatar')) {
-      fetch(`${API_BASE_URL}/api/v1/admin/staff-users/profile`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(res => res.ok ? res.json() : null)
+    if (!localStorage.getItem('userAvatar')) {
+      getStaffProfile()
         .then(data => {
           if (data?.profileImageUrl) {
+            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
             const fullUrl = data.profileImageUrl.startsWith('http')
               ? data.profileImageUrl
-              : `${API_BASE_URL}${data.profileImageUrl}`;
+              : `${apiBase}${data.profileImageUrl}`;
             localStorage.setItem('userAvatar', fullUrl);
             setAvatarUrl(fullUrl);
           }
@@ -178,8 +163,6 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
 
   const handleMarkAsRead = async (id: string | number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const token = localStorage.getItem('token');
-    if (!token) return;
 
     // Optimistic UI update
     setNotifications(prev =>
@@ -189,13 +172,7 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
     );
 
     try {
-      await fetch(`${API_BASE_URL}/api/v1/notifications/${id}/read`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await markNotificationAsRead(id);
     } catch (err) {
       console.error(`Failed to mark notification ${id} as read:`, err);
     }
@@ -210,22 +187,8 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
       prev.map(n => ({ ...n, isRead: true, read: true, status: 'READ' }))
     );
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    // Call individual mark as read in parallel
     try {
-      await Promise.all(
-        unreadItems.map(item =>
-          fetch(`${API_BASE_URL}/api/v1/notifications/${item.id}/read`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          })
-        )
-      );
+      await Promise.all(unreadItems.map(item => markNotificationAsRead(item.id)));
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err);
     }

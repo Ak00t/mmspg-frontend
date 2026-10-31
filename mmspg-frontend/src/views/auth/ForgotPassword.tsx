@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Loader2, CheckCircle2, AlertCircle, ShieldCheck, KeyRound } from 'lucide-react';
+import { api } from '../../services/api';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -14,23 +15,10 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://127.0.0.1:8004/api/v1/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.message || 'Unable to process your request. Please check your email address and try again.');
-      }
-
+      await api.post('/api/v1/auth/forgot-password', { email: email.trim() });
       setIsSubmitted(true);
     } catch (err: any) {
-      setError(err.message || 'A network error occurred. Please try again.');
+      setError(err.response?.data?.message || err.message || 'A network error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
