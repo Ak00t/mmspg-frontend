@@ -7,14 +7,15 @@ import { MerchantSidebar } from '../components/MerchantSidebar'
 import { TransactionStatusCard } from '../components/TransactionStatusCard'
 import { MerchantReportExport } from '../components/MerchantReportExport'
 import { emptyDashboardSummary } from '../types'
+import { formatLocalDate } from '../../../utils/formatDate'
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'MMK', maximumFractionDigits: 0 }).format(value)
 }
 
 export function MerchantDashboardPage() {
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [startDate, setStartDate] = useState(() => formatLocalDate(new Date()))
+  const [endDate, setEndDate] = useState(() => formatLocalDate(new Date()))
   const [summary, setSummary] = useState(emptyDashboardSummary)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

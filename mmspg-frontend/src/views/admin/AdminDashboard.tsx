@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Activity, Monitor, Users, FileText, CheckCircle } from 'lucide-react';
+import { Clock, Activity, Monitor, Users, FileText, CheckCircle, RefreshCw, AlertCircle } from 'lucide-react';
 import { getAdminDashboardSummary } from '../../services/adminDashboardApi';
 
 interface RecentRequest {
@@ -23,47 +23,72 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const summary = await getAdminDashboardSummary();
-        const volume = summary.totalVolumeToday != null ? Number(summary.totalVolumeToday) : 0;
-        const formattedVolume = `MMK ${volume.toLocaleString()}`;
+  const fetchDashboardData = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
 
-        const recentRequests = (summary.recentMerchantRequests || []).map((req) => ({
-          requestId: req.requestId ? String(req.requestId).substring(0, 8) + '...' : 'N/A',
-          merchantName: req.merchantName || 'Unknown',
-          businessType: req.businessType || 'N/A',
-          dateApplied: req.date ? new Date(req.date).toLocaleDateString() : 'N/A',
-          status: req.status || 'PENDING'
-        }));
+    try {
+      const summary = await getAdminDashboardSummary();
+      const volume = summary.totalVolumeToday != null ? Number(summary.totalVolumeToday) : 0;
+      const formattedVolume = `MMK ${volume.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
-        setDashboardData({
-          pendingApprovals: summary.totalPendingApprovals || 0,
-          totalVolume: formattedVolume,
-          activeGateways: summary.activeGateways || 0,
-          internalStaff: summary.internalStaff || 0,
-          recentRequests: recentRequests
-        });
-      } catch (err: any) {
-        console.error("Error fetching admin dashboard summary:", err);
-        setError(err.response?.data?.message || err.message || "Failed to load dashboard data");
-      } finally {
-        setLoading(false);
-      }
-    };
+      const recentRequests = (summary.recentMerchantRequests || []).map((req) => ({
+        requestId: req.requestId ? String(req.requestId).substring(0, 8) + '...' : 'N/A',
+        merchantName: req.merchantName || 'Unknown',
+        businessType: req.businessType || 'N/A',
+        dateApplied: req.date ? new Date(req.date).toLocaleDateString() : 'N/A',
+        status: req.status || 'PENDING'
+      }));
 
-    fetchDashboardData();
+      setDashboardData({
+        pendingApprovals: Number(summary.totalPendingApprovals) || 0,
+        totalVolume: formattedVolume,
+        activeGateways: Number(summary.activeGateways) || 0,
+        internalStaff: Number(summary.internalStaff) || 0,
+        recentRequests: recentRequests
+      });
+    } catch (err: any) {
+      console.error("Error fetching admin dashboard summary:", err);
+      setError(err.response?.data?.message || err.message || "Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
   if (loading) {
-    return <div className="p-8 text-center text-slate-500">Loading real data from database...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 space-y-3">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
+        <p className="text-sm font-medium">Loading live metrics from database...</p>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="p-8 text-center text-red-500">{error}</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-600 space-y-4">
+        <div className="p-3 bg-red-50 text-red-500 rounded-full">
+          <AlertCircle className="h-8 w-8" />
+        </div>
+        <p className="text-red-600 font-medium">{error}</p>
+        <button
+          onClick={() => fetchDashboardData()}
+          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </button>
+      </div>
+    );
   }
 
   const data = dashboardData || {
@@ -76,8 +101,19 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
+          <p className="text-sm text-slate-500 mt-1">Real-time overview of gateway metrics, approvals, and transaction volume.</p>
+        </div>
+        <button
+          onClick={() => fetchDashboardData(true)}
+          disabled={refreshing}
+          className="inline-flex items-center px-3.5 py-2 border border-slate-200 bg-white text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 text-slate-500 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
       </div>
 
       {/* KPI Cards */}

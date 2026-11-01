@@ -14,6 +14,7 @@ import {
   downloadSettlements,
   type ReportFormat,
 } from '../api/merchantReportApi'
+import { formatLocalDate } from '../../../utils/formatDate'
 
 const SALES_LEDGER_STATUSES = [
   { value: 'ALL', label: 'All Statuses' },
@@ -32,10 +33,8 @@ const SETTLEMENT_STATUSES = [
 ]
 
 export function MerchantReportExport() {
-  const today = new Date().toISOString().slice(0, 10)
-  const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString()
-    .slice(0, 10)
+  const today = formatLocalDate(new Date())
+  const firstDayOfMonth = formatLocalDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
 
   const [reportType, setReportType] = useState<'sales-ledger' | 'settlements'>('sales-ledger')
   const [startDate, setStartDate] = useState(firstDayOfMonth)

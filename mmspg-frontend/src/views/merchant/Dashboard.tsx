@@ -8,6 +8,8 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   Wallet,
+  Zap,
+  ArrowRight,
 } from 'lucide-react'
 
 import {
@@ -24,6 +26,7 @@ import {
   type MerchantProfile,
   type RecentTransaction,
 } from '../../features/main-merchant/types'
+import { formatLocalDate } from '../../utils/formatDate'
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('en-US', {
@@ -34,14 +37,14 @@ function formatMoney(value: number) {
 }
 
 function getTodayString() {
-  return new Date().toISOString().slice(0, 10)
+  return formatLocalDate(new Date())
 }
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const [startDate, setStartDate] = useState(getTodayString)
   const [endDate, setEndDate] = useState(getTodayString)
-  const [activePreset, setActivePreset] = useState<'today' | 'yesterday' | '7days' | 'month' | 'custom'>('today')
+  const [activePreset, setActivePreset] = useState<'today' | 'yesterday' | '7days' | '30days' | 'month' | 'custom'>('today')
 
   const [summary, setSummary] = useState<DashboardSummary>(emptyDashboardSummary)
   const [profile, setProfile] = useState<MerchantProfile | null>(null)
@@ -102,29 +105,34 @@ export default function Dashboard() {
   }, [])
 
   // Quick preset handler
-  const handlePresetChange = (preset: 'today' | 'yesterday' | '7days' | 'month') => {
+  const handlePresetChange = (preset: 'today' | 'yesterday' | '7days' | '30days' | 'month') => {
     setActivePreset(preset)
     const today = new Date()
     let from = ''
     let to = ''
 
     if (preset === 'today') {
-      from = today.toISOString().slice(0, 10)
+      from = formatLocalDate(today)
       to = from
     } else if (preset === 'yesterday') {
       const y = new Date(today)
       y.setDate(y.getDate() - 1)
-      from = y.toISOString().slice(0, 10)
+      from = formatLocalDate(y)
       to = from
     } else if (preset === '7days') {
       const past = new Date(today)
       past.setDate(past.getDate() - 7)
-      from = past.toISOString().slice(0, 10)
-      to = today.toISOString().slice(0, 10)
+      from = formatLocalDate(past)
+      to = formatLocalDate(today)
+    } else if (preset === '30days') {
+      const past = new Date(today)
+      past.setDate(past.getDate() - 30)
+      from = formatLocalDate(past)
+      to = formatLocalDate(today)
     } else if (preset === 'month') {
       const first = new Date(today.getFullYear(), today.getMonth(), 1)
-      from = first.toISOString().slice(0, 10)
-      to = today.toISOString().slice(0, 10)
+      from = formatLocalDate(first)
+      to = formatLocalDate(today)
     }
 
     setStartDate(from)
@@ -188,11 +196,12 @@ export default function Dashboard() {
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
             <Calendar className="size-3.5" /> Range:
           </span>
-          {(['today', 'yesterday', '7days', 'month'] as const).map((p) => {
+          {(['today', 'yesterday', '7days', '30days', 'month'] as const).map((p) => {
             const labels = {
               today: 'Today',
               yesterday: 'Yesterday',
               '7days': 'Last 7 Days',
+              '30days': 'Last 30 Days',
               month: 'This Month',
             }
             const isActive = activePreset === p
@@ -265,15 +274,15 @@ export default function Dashboard() {
           accent="sky"
         />
         <MetricCard
-          label="Available Balance"
+          label="Net Settled"
           value={formatMoney(summary.availableSettlementBalance)}
-          helper="Pending settlement funds"
+          helper="Credited net earnings (after fees)"
           accent="emerald"
         />
         <MetricCard
-          label="Pending Settlements"
+          label="Settled Payouts"
           value={summary.pendingSettlementsCount.toLocaleString()}
-          helper="Awaiting bank payout"
+          helper="Real-time instant settlements"
           accent="amber"
         />
       </div>
@@ -284,29 +293,58 @@ export default function Dashboard() {
           statusCounts={hasStatusData ? summary.transactionsByStatus : {}}
         />
 
-        {/* Settlement Card */}
-        <section className="rounded-2xl bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 text-white shadow-md flex flex-col justify-between">
+        {/* Instant Settlement Card */}
+        <section className="rounded-2xl bg-gradient-to-br from-indigo-700 via-indigo-800 to-indigo-950 p-6 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
+          {/* Ambient Glow */}
+          <div className="absolute -right-8 -top-8 size-36 rounded-full bg-indigo-500/20 blur-2xl pointer-events-none" />
+
           <div>
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-200">
-                Settlement Account
-              </p>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/30 px-3 py-1 text-[11px] font-semibold tracking-wide text-indigo-100 border border-indigo-400/30">
+                <Zap className="size-3 text-amber-300 fill-amber-300" />
+                INSTANT SETTLEMENT
+              </span>
               <Wallet className="size-5 text-indigo-200" />
             </div>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight">
-              {formatMoney(summary.availableSettlementBalance)}
-            </h2>
-            <p className="mt-2 text-xs leading-relaxed text-indigo-100">
-              Total net amount pending daily batch settlement. Once verified by core banking,
-              funds are transferred to your registered account.
+
+            <div className="mt-5">
+              <p className="text-xs font-medium uppercase tracking-wider text-indigo-200">
+                Net Settled Earnings
+              </p>
+              <h2 className="mt-1 text-3xl font-extrabold tracking-tight">
+                {formatMoney(summary.availableSettlementBalance)}
+              </h2>
+            </div>
+
+            {profile?.settlementAccountNo && (
+              <div className="mt-4 rounded-xl bg-white/10 p-3 backdrop-blur-xs border border-white/10 text-xs">
+                <div className="text-[11px] text-indigo-200 uppercase tracking-wider font-semibold">
+                  Destination Bank Account
+                </div>
+                <div className="mt-0.5 font-mono font-bold tracking-wider text-white text-sm">
+                  {profile.settlementAccountNo}
+                </div>
+              </div>
+            )}
+
+            <p className="mt-3 text-xs leading-relaxed text-indigo-100">
+              Payments (minus MDR gateway fees) are settled instantly into your registered bank account in real-time.
             </p>
           </div>
 
-          <div className="mt-8 border-t border-indigo-500/40 pt-4 flex items-center justify-between text-xs">
-            <span className="text-indigo-200">Pending batches</span>
-            <span className="font-bold text-white bg-indigo-500/30 px-2.5 py-1 rounded-full">
-              {summary.pendingSettlementsCount} batches
+          <div className="mt-6 border-t border-indigo-500/40 pt-4 flex items-center justify-between text-xs">
+            <span className="text-indigo-200 flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              {summary.pendingSettlementsCount} Real-Time Settlements
             </span>
+            <button
+              type="button"
+              onClick={() => navigate('/merchant/reports')}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-200 hover:text-white transition"
+            >
+              <span>View Reports</span>
+              <ArrowRight className="size-3.5" />
+            </button>
           </div>
         </section>
       </div>
