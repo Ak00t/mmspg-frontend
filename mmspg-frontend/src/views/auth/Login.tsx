@@ -97,6 +97,12 @@ export default function Login() {
         localStorage.setItem('userName', data.businessName);
         localStorage.setItem('userRole', 'MERCHANT');
 
+        // 🔴 ဤနေရာတွင် Profile ပုံကိုပါ သိမ်းမည့်ကုဒ် ထပ်ထည့်ပါ
+        // (Backend က ပို့ပေးမည့် ပုံ၏ variable အမည်ပေါ်မူတည်၍ data.avatar သို့မဟုတ် data.profileImage စသဖြင့် ပြင်ရေးနိုင်ပါသည်)
+        if (data.avatar || data.profileImage || data.image) {
+          localStorage.setItem('userAvatar', data.avatar || data.profileImage || data.image);
+        }
+
         navigate('/merchant/dashboard');
       } else {
         // Staff / Admin Login Endpoint
@@ -109,6 +115,7 @@ export default function Login() {
         });
 
         const data = await response.json();
+        console.log("Login Response Data: ", data);
 
         // Check for staff account suspension
         if (

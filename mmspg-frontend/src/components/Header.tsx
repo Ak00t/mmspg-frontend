@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate,Link  } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { 
   User, 
@@ -13,6 +13,11 @@ import {
   Inbox, 
   X,
   Trash2,
+  Store, 
+  ShieldCheck, 
+  MapPin, 
+  Tags, 
+  Server,
   Menu
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
@@ -125,7 +130,9 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
         setNotifications(filtered);
       }
     } catch (err) {
-      console.error('Failed to fetch notifications:', err);
+      console.error('Failed to load notifications:', err);
+    } finally {
+      if (!isPolling) setIsLoadingNotifications(false);
     }
   };
 
@@ -328,6 +335,25 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
       ));
     } catch { /* ignore */ }
   };
+
+  // ----------------------------------------------------------------------
+  // 3. Document Listeners & Helpers
+  // ----------------------------------------------------------------------
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     ['token','mmspg_token','userId','merchantId','mmspg_merchant_id','userName','userRole','userAvatar','adminProfileImage']
@@ -532,6 +558,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
               </div>
               <ChevronDown className="ml-2 h-4 w-4 text-slate-400" />
             </div>
+            <ChevronDown className="h-4 w-4 text-slate-400" />
           </button>
 
           {isProfileOpen && (
@@ -546,6 +573,12 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
                   const base = role === 'SUPPORT' ? '/support' : role === 'AUDITOR' ? '/auditor' : '/admin';
                   navigate(`${base}/profile`);
                   setIsProfileOpen(false);
+                  // 🔴 '/admin/profile' သို့ သွားရန် ညွှန်ကြားခြင်း
+                  if (window.location.pathname === '/admin/profile') {
+                    window.location.reload(); 
+                  } else {
+                    navigate('/admin/profile'); 
+                  }
                 }}
                 className="flex items-center w-full px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >

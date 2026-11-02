@@ -19,6 +19,8 @@ import Settings from './views/admin/Settings';
 
 // Merchant Views
 import MerchantDashboard from './views/merchant/Dashboard';
+import MerchantReports from './views/merchant/Reports';
+import MerchantWebhooks from './views/merchant/Webhooks';
 import ResetPassword from './views/auth/ResetPassword';
 import ForgotPassword from './views/auth/ForgotPassword';
 
@@ -89,6 +91,12 @@ export default function App() {
               <Route path="profile" element={<StaffProfile />} />
               <Route path="settings" element={<Settings />} />
             </Route>
+        {/* Protected Merchant Routes */}
+        <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
+          <Route element={<Layout />}>
+            <Route path="dashboard" element={<MerchantDashboard />} />
+            <Route path="reports" element={<MerchantReports />} />
+            <Route path="webhooks" element={<MerchantWebhooks />} />
           </Route>
 
           {/* Protected Merchant Routes */}
