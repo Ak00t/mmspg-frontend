@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import axios from 'axios'
+import { isAxiosError } from '../../../services/api'
 
 import { getMerchantDashboardSummary } from '../api/merchantDashboardApi'
 import { MetricCard } from '../components/MetricCard'
@@ -32,7 +32,7 @@ export function MerchantDashboardPage() {
       setSummary({ ...emptyDashboardSummary, ...data })
       setLastUpdated(new Date())
     } catch (requestError) {
-      if (axios.isAxiosError(requestError) && requestError.response?.status === 403) setError('You do not have access to this merchant dashboard.')
+      if (isAxiosError(requestError) && requestError.response?.status === 403) setError('You do not have access to this merchant dashboard.')
       else setError('Could not load dashboard data. Check the API and your login token.')
     } finally {
       setLoading(false)

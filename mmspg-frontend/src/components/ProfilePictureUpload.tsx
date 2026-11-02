@@ -21,14 +21,11 @@ export default function ProfilePictureUpload({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Clean up object URL on unmount or when preview changes to avoid memory leaks
+  const [imageLoadError, setImageLoadError] = useState(false);
+
   useEffect(() => {
-    return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
+    setImageLoadError(false);
+  }, [currentImageUrl, previewUrl]);
 
   // Trigger hidden file input click
   const handleAvatarClick = () => {
@@ -36,7 +33,7 @@ export default function ProfilePictureUpload({
     fileInputRef.current?.click();
   };
 
-  // Handle file selection and generate real-time preview
+ // Handle file selection and generate real-time Base64 preview
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -44,6 +41,7 @@ export default function ProfilePictureUpload({
     // Reset feedback
     setError(null);
     setSuccess(null);
+    setImageLoadError(false);
 
     // Validate image format
     if (!file.type.startsWith('image/')) {
@@ -58,15 +56,19 @@ export default function ProfilePictureUpload({
       return;
     }
 
-    // Revoke previous blob preview if any
-    if (previewUrl && previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl);
-    }
-
-    // Real-time preview with URL.createObjectURL()
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-    setSelectedFile(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setPreviewUrl(base64); // Preview စက်ဝိုင်းထဲမှာပြဖို့သာ update လုပ်မည်
+      setSelectedFile(file);
+      
+      // ဖယ်ရှားလိုက်သောအရာများ: localStorage ထဲသိမ်းခြင်းနှင့် dispatchEvents များ
+      // ၎င်းတို့ကို Save Photo နှိပ်ပြီး upload အောင်မြင်မှသာ handleImageUpload ထဲတွင် လုပ်ဆောင်ရပါမည်။
+    };
+    reader.onerror = () => {
+      setError('Failed to read image file.');
+    };
+    reader.readAsDataURL(file);
   };
 
   // Upload image to backend
@@ -94,11 +96,52 @@ export default function ProfilePictureUpload({
       const data = response.data;
 
       setSuccess('Profile picture updated successfully!');
+
+      // Convert uploaded file to base64 data URL for instant and guaranteed rendering
+      let base64Image: string | null = previewUrl && previewUrl.startsWith('data:') ? previewUrl : null;
+      if (!base64Image && file) {
+        try {
+          base64Image = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+        } catch {
+          // ignore
+        }
+      }
+
+      // Determine uploaded image URL from backend response or fallback to current preview
+      const rawUrl =
+        data?.profileImageUrl ||
+        data?.imageUrl ||
+        data?.url ||
+        data?.path ||
+        (typeof data === 'string' ? data : null) ||
+        previewUrl;
+
+      let imageUrlOrBase64 = rawUrl;
+      if (rawUrl && !rawUrl.startsWith('http') && !rawUrl.startsWith('blob:') && !rawUrl.startsWith('data:')) {
+        imageUrlOrBase64 = `http://127.0.0.1:8004${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+      }
+
+      const imageToStore = base64Image || imageUrlOrBase64;
       setSelectedFile(null);
 
-      // Notify parent component if callback provided
-      if (onUploadSuccess && (data?.imageUrl || data?.url || data?.path)) {
-        onUploadSuccess(data.imageUrl || data.url || data.path);
+      if (imageToStore) {
+        // Save that exact image string into localStorage using the key 'adminProfileImage'
+        localStorage.setItem('adminProfileImage', imageToStore);
+        localStorage.setItem('userAvatar', imageToStore);
+
+        // Notify parent callback with Base64 image
+        if (onUploadSuccess) {
+          onUploadSuccess(imageToStore);
+        }
+
+        // Immediately dispatch the event
+        window.dispatchEvent(new Event('profileUpdated'));
+        window.dispatchEvent(new Event('avatarUpdated'));
+        window.dispatchEvent(new Event('refreshNotifications'));
       }
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'An error occurred while uploading. Please try again.');
@@ -109,19 +152,17 @@ export default function ProfilePictureUpload({
 
   // Cancel selected preview and reset
   const handleCancelPreview = () => {
-    if (previewUrl && previewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl);
-    }
     setPreviewUrl(null);
     setSelectedFile(null);
     setError(null);
     setSuccess(null);
+    setImageLoadError(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const displayImage = previewUrl || currentImageUrl;
+  const displayImage = !imageLoadError ? (previewUrl || currentImageUrl) : null;
 
   return (
     <div className="flex flex-col items-center sm:items-start space-y-4">
@@ -137,10 +178,7 @@ export default function ProfilePictureUpload({
               src={displayImage}
               alt="Staff Profile"
               className="w-full h-full object-cover"
-              onError={() => {
-                // Fallback to placeholder if image URL fails to load
-                setPreviewUrl(null);
-              }}
+              onError={() => setImageLoadError(true)}
             />
           ) : (
             /* Generic Placeholder Icon from lucide-react */

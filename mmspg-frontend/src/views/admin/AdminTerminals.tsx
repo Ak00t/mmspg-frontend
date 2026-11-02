@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Plus, Edit, ShieldAlert, X, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   getTerminals,
@@ -22,6 +23,10 @@ interface Terminal {
 }
 
 export default function AdminTerminals() {
+  const { t } = useTranslation();
+  const rawRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = rawRole.startsWith('ROLE_') ? rawRole.substring(5) : rawRole;
+  const isAuditor = userRole === 'AUDITOR' || userRole.includes('AUDITOR');
   const [terminals, setTerminals] = useState<Terminal[]>([]);
   const [merchants, setMerchants] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
@@ -53,7 +58,15 @@ export default function AdminTerminals() {
   const fetchTerminals = async () => {
     try {
       const data = await getTerminals();
-      setTerminals(data);
+      const items = Array.isArray(data) ? data : (data.content || data.data || []);
+      
+      const sortedTerminals = [...items].sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
+      });
+      
+      setTerminals(sortedTerminals);
     } catch (error) {
       console.error('Error fetching terminals:', error);
     } finally {
@@ -64,16 +77,16 @@ export default function AdminTerminals() {
   const fetchMerchantsAndBranches = async () => {
     try {
       const [merData, braData] = await Promise.all([getMerchants(), getBranches()]);
-      setMerchants(merData);
-      setBranches(braData);
+      setMerchants(Array.isArray(merData) ? merData : (merData.content || []));
+      setBranches(Array.isArray(braData) ? braData : (braData.content || []));
     } catch (error) {
-      console.error('Error fetching dropdown data:', error);
+      console.error('Error fetching merchants/branches:', error);
     }
   };
 
   const handleProvisionSubmit = async () => {
-    if (!newTerminal.merchantId || !newTerminal.terminalName || !newTerminal.terminalType) {
-      alert("Please fill in all required fields.");
+    if (!newTerminal.merchantId || !newTerminal.terminalName) {
+      alert('Please fill in required fields');
       return;
     }
     try {
@@ -84,9 +97,9 @@ export default function AdminTerminals() {
       
       window.dispatchEvent(new Event('refreshNotifications'));
       alert('Terminal provisioned successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error provisioning terminal:', error);
-      alert('Failed to provision terminal.');
+      alert(`Failed to provision terminal: ${error.response?.data?.error || error.message || 'Unknown error'}`);
     }
   };
 
@@ -103,7 +116,7 @@ export default function AdminTerminals() {
       
       window.dispatchEvent(new Event('refreshNotifications'));
       alert('Terminal updated successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating terminal:', error);
       alert('Failed to update terminal.');
     }
@@ -120,7 +133,7 @@ export default function AdminTerminals() {
       
       window.dispatchEvent(new Event('refreshNotifications'));
       alert('Terminal suspended successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error suspending terminal:', error);
       alert('Failed to suspend terminal.');
     }
@@ -133,7 +146,7 @@ export default function AdminTerminals() {
       setTerminals(terminals.map(t => t.terminalId === id ? { ...t, status: 'ONLINE' } : t));
       window.dispatchEvent(new Event('refreshNotifications'));
       alert('Terminal reactivated successfully!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error reactivating terminal:', error);
       alert('Failed to reactivate terminal.');
     }
@@ -141,7 +154,8 @@ export default function AdminTerminals() {
 
   const filteredTerminals = terminals.filter(terminal => 
     (terminal.terminalCode && terminal.terminalCode.toLowerCase().includes(searchTerm.toLowerCase())) || 
-    (terminal.merchantName && terminal.merchantName.toLowerCase().includes(searchTerm.toLowerCase()))
+    (terminal.merchantName && terminal.merchantName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (terminal.terminalName && terminal.terminalName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -149,27 +163,29 @@ export default function AdminTerminals() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Terminal Management</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage and monitor POS terminals here.</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('terminals.title')}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('terminals.subtitle')}</p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Terminal
-        </button>
+        {userRole === 'ADMIN' && (
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+            <Plus className="h-4 w-4 mr-2" />
+            {t('terminals.addTerminal')}
+          </button>
+        )}
       </div>
 
       {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center">
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center">
         <div className="relative w-full max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-slate-400" />
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-colors"
-            placeholder="Search TID / Name..."
+            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm transition-colors"
+            placeholder={t('terminals.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -177,91 +193,92 @@ export default function AdminTerminals() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-slate-500">Loading terminal data...</div>
+            <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t('terminals.loading')}</div>
           ) : (
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-900">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">TERMINAL ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">NAME / TYPE</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">MERCHANT</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">BRANCH</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">STATUS</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">CREATED</th>
-                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">ACTIONS</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('terminals.colTerminalId')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('terminals.model')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('branches.colMerchant')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('branches.title')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('common.status')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('common.date')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('common.actions')}</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {filteredTerminals.map((terminal, index) => (
-                  <tr key={terminal.terminalId || index} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">
+                  <tr key={terminal.terminalId || index} className="hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900 dark:text-white">
                       {terminal.terminalCode || `TID-${terminal.terminalId}`}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-slate-900">{terminal.terminalName}</div>
-                      <div className="text-xs text-slate-500 uppercase">{terminal.terminalType}</div>
+                      <div className="text-sm font-medium text-slate-900 dark:text-white">{terminal.terminalName}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase">{terminal.terminalType}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
                       {terminal.merchantName}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
                       {terminal.branchName || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         terminal.status === 'ONLINE' || terminal.status === 'ACTIVE'
-                          ? 'bg-green-100 text-green-800' 
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
                           : terminal.status === 'OFFLINE'
-                          ? 'bg-slate-100 text-slate-800'
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-300'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                       }`}>
-                        {terminal.status}
+                        {terminal.status === 'ONLINE' || terminal.status === 'ACTIVE' ? t('common.active') : terminal.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                      {new Date(terminal.createdAt).toISOString().split('T')[0]}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                      {terminal.createdAt ? new Date(terminal.createdAt).toISOString().split('T')[0] : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        
-                        {/* 🔴 Status ပေါ်မူတည်၍ ခလုတ်ပြောင်းလဲပြသခြင်း */}
-                        {terminal.status === 'SUSPENDED' ? (
-                          <button 
-                            onClick={() => handleReactivate(terminal.terminalId)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Reactivate">
-                            <RefreshCw className="h-4 w-4" />
-                          </button>
-                        ) : (
+                      {isAuditor ? (
+                        <span className="text-xs text-slate-400 italic">View Only</span>
+                      ) : (
+                        <div className="flex justify-end space-x-2">
+                          {terminal.status === 'SUSPENDED' ? (
+                            <button 
+                              onClick={() => handleReactivate(terminal.terminalId)}
+                              className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title={t('merchants.reactivate')}>
+                              <RefreshCw className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => {
+                                setSuspendingTerminal(terminal);
+                                setIsSuspendModalOpen(true);
+                              }}
+                              className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" title={t('merchants.suspend')}>
+                              <ShieldAlert className="h-4 w-4" />
+                            </button>
+                          )}
+                          
                           <button 
                             onClick={() => {
-                              setSuspendingTerminal(terminal);
-                              setIsSuspendModalOpen(true);
+                              setEditingTerminal({...terminal});
+                              setIsEditModalOpen(true);
                             }}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Suspend">
-                            <ShieldAlert className="h-4 w-4" />
+                            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title={t('common.edit')}>
+                            <Edit className="h-4 w-4" />
                           </button>
-                        )}
-                        
-                        {/* Edit Button */}
-                        <button 
-                          onClick={() => {
-                            setEditingTerminal({...terminal});
-                            setIsEditModalOpen(true);
-                          }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
                 {filteredTerminals.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500 text-sm">
-                      No terminals found matching your search.
+                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                      {t('terminals.noTerminals')}
                     </td>
                   </tr>
                 )}
@@ -273,23 +290,23 @@ export default function AdminTerminals() {
 
       {/* Provision New Terminal Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-slate-800">Add New Terminal</h2>
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('terminals.modalAddTitle')}</h2>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Target Merchant</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.colMerchant')}</label>
                 <select 
                   value={newTerminal.merchantId}
                   onChange={(e) => setNewTerminal({...newTerminal, merchantId: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                  <option value="">Select a Merchant...</option>
+                  <option value="">{t('branches.selectMerchant')}...</option>
                   {merchants.map((m, i) => (
                     <option key={m.merchantId || m.id || i} value={m.merchantId || m.id}>
                       {m.businessName || m.merchantName || `Merchant ${i+1}`}
@@ -298,13 +315,13 @@ export default function AdminTerminals() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Target Branch</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.selectBranch')}</label>
                 <select 
                   value={newTerminal.branchId}
                   onChange={(e) => setNewTerminal({...newTerminal, branchId: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                  <option value="">Select a Branch...</option>
+                  <option value="">{t('terminals.selectBranch')}...</option>
                   {branches
                     .filter(b => {
                       if (!newTerminal.merchantId) return true; 
@@ -320,49 +337,49 @@ export default function AdminTerminals() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Terminal Name</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.colModel')}</label>
                 <input 
                   type="text" 
                   value={newTerminal.terminalName} 
                   onChange={(e) => setNewTerminal({...newTerminal, terminalName: e.target.value})}
                   placeholder="e.g. Counter 1 - Barcode POS"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Terminal Type</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Terminal Type</label>
                 <select 
                   value={newTerminal.terminalType}
                   onChange={(e) => setNewTerminal({...newTerminal, terminalType: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                   <option value="PHYSICAL_POS">Physical POS</option>
                   <option value="VIRTUAL_API">Virtual Checkout API</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Terminal Code (Optional)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.terminalId')} (Optional)</label>
                 <input 
                   type="text" 
                   value={newTerminal.terminalCode} 
                   onChange={(e) => setNewTerminal({...newTerminal, terminalCode: e.target.value})}
                   placeholder="Auto-generated if left blank"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
             </div>
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-end space-x-3">
               <button 
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button 
                 onClick={handleProvisionSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
               >
-                Provision
+                {t('terminals.createTerminal')}
               </button>
             </div>
           </div>
@@ -371,48 +388,48 @@ export default function AdminTerminals() {
 
       {/* Edit Terminal Info Modal */}
       {isEditModalOpen && editingTerminal && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="text-lg font-bold text-slate-800">Edit Terminal Info</h2>
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('terminals.modalEditTitle')}</h2>
               <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Terminal Name</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.model')}</label>
                 <input 
                   type="text" 
                   value={editingTerminal.terminalName} 
                   onChange={(e) => setEditingTerminal({...editingTerminal, terminalName: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Terminal Type</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Terminal Type</label>
                 <select 
                   value={editingTerminal.terminalType}
                   onChange={(e) => setEditingTerminal({...editingTerminal, terminalType: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                   <option value="PHYSICAL_POS">Physical POS</option>
                   <option value="VIRTUAL_API">Virtual Checkout API</option>
                 </select>
               </div>
             </div>
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-end space-x-3">
               <button 
                 onClick={() => setIsEditModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button 
                 onClick={handleSaveEdit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
               >
-                Save Changes
+                {t('terminals.saveChanges')}
               </button>
             </div>
           </div>
@@ -421,45 +438,44 @@ export default function AdminTerminals() {
 
       {/* Suspend Terminal Modal */}
       {isSuspendModalOpen && suspendingTerminal && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 flex items-center space-x-2">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden p-6 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center space-x-2 mb-3">
               <AlertTriangle className="h-6 w-6 text-red-600" />
-              <h2 className="text-lg font-bold text-slate-800">Suspend Terminal</h2>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('merchants.suspend')}</h2>
             </div>
-            <div className="px-6 pb-2 text-sm text-slate-600">
+            <div className="pb-2 text-sm text-slate-600 dark:text-slate-300">
               Are you sure you want to suspend this terminal? It will no longer be able to process transactions.
             </div>
-            <div className="p-6 pt-2 space-y-4">
+            <div className="pt-2 space-y-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Reason for Suspension</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Reason for Suspension</label>
                 <textarea 
                   rows={3}
                   value={suspendReason} 
                   onChange={(e) => setSuspendReason(e.target.value)}
                   placeholder="Please provide a reason..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-red-500 outline-none resize-none"
                 />
               </div>
             </div>
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3">
+            <div className="flex justify-end space-x-3">
               <button 
                 onClick={() => setIsSuspendModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button 
                 onClick={handleSuspendSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
               >
-                Confirm Suspend
+                {t('merchants.suspend')}
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
