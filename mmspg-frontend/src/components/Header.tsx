@@ -1,14 +1,18 @@
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate,Link  } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   User, 
   LogOut, 
   ChevronDown, 
   Bell, 
+  BellOff, 
   Search, 
-  Check,
-  CheckCheck,
-  Inbox,
-  Loader2,
+  Check, 
+  CheckCheck, 
+  Loader2, 
+  Inbox, 
+  X,
+  Trash2,
   Store, 
   ShieldCheck, 
   MapPin, 
@@ -31,155 +35,99 @@ export interface NotificationItem {
 }
 
 interface HeaderProps {
-  isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
+  isSidebarOpen?: boolean;
 }
 
-export default function Header({ isSidebarOpen = true, onToggleSidebar }: HeaderProps = {}) {
+export default function Header({ onToggleSidebar, isSidebarOpen = true }: HeaderProps) {
   const navigate = useNavigate();
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { t } = useTranslation();
+
+  const [isProfileOpen, setIsProfileOpen]       = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
-  // Search States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState({
-    staff: [] as any[],
-    merchants: [] as any[],
-    branches: [] as any[],
-    terminals: [] as any[],
-    mcc: [] as any[],
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    const stored = localStorage.getItem('notificationsEnabled');
+    return stored === null ? true : stored === 'true';
   });
 
-  // Notification States
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifications, setNotifications]             = useState<NotificationItem[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
-  // Dropdown click-outside refs
   const notificationRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLDivElement>(null); 
+  const profileRef      = useRef<HTMLDivElement>(null);
 
- const userName = localStorage.getItem('userName') || 'Admin User';
-  const userRole = localStorage.getItem('userRole') || 'ADMIN';
-  
-  // 🔴 'null' သို့မဟုတ် 'undefined' စာသားများ ဝင်နေပါက အလွတ် (null) အဖြစ်သာ သတ်မှတ်မည်
-  const getValidAvatar = () => {
-    const avatar = localStorage.getItem('userAvatar');
-    return (avatar && avatar !== 'null' && avatar !== 'undefined') ? avatar : null;
-  };
-  
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(getValidAvatar());
+  const [userName, setUserName] = useState<string>(() => localStorage.getItem('userName') || 'Admin User');
+  const [userRole, setUserRole] = useState<string>(() => localStorage.getItem('userRole') || 'ADMIN');
+  const [avatar, setAvatar]     = useState<string | null>(
+    () => localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar')
+  );
 
+  // ── Avatar sync ────────────────────────────────────────────────────────
   useEffect(() => {
-    const handleAvatarUpdate = () => {
-      setAvatarUrl(getValidAvatar());
+    const sync = () => {
+      const stored = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+      setAvatar(stored);
     };
-    window.addEventListener('avatarUpdated', handleAvatarUpdate);
-    return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+    window.addEventListener('profileUpdated', sync);
+    window.addEventListener('avatarUpdated', sync);
+    return () => {
+      window.removeEventListener('profileUpdated', sync);
+      window.removeEventListener('avatarUpdated', sync);
+    };
   }, []);
 
-
-  // ----------------------------------------------------------------------
-  // 1. Live Search Logic (Debounced)
-  // ----------------------------------------------------------------------
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults({ staff: [], merchants: [], branches: [], mcc: [], terminals: [] });
-      setIsSearchOpen(false);
+  // ── Fetch notifications ────────────────────────────────────────────────
+  const fetchNotifications = async () => {
+    if (localStorage.getItem('notificationsEnabled') === 'false') {
+      setNotifications([]);
       return;
     }
-
-    const delaySearch = setTimeout(async () => {
-      setIsSearchLoading(true);
-      setIsSearchOpen(true);
-      const token = localStorage.getItem('token');
-      const q = searchQuery.toLowerCase().trim();
-
-      try {
-        const headers = { 'Authorization': `Bearer ${token}` };
-        const [staffRes, merchantsRes, branchesRes, mccRes, terminalsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/v1/admin/staff-users`, { headers }).catch(() => null),
-          fetch(`${API_BASE_URL}/api/v1/admin/merchants`, { headers }).catch(() => null),
-          fetch(`${API_BASE_URL}/api/v1/admin/branches`, { headers }).catch(() => null),
-          fetch(`${API_BASE_URL}/api/v1/admin/mcc`, { headers }).catch(() => null),
-          fetch(`${API_BASE_URL}/api/v1/admin/terminals`, { headers }).catch(() => null),
-        ]);
-
-        const getArray = async (res: any) => res?.ok ? Array.isArray(await res.clone().json()) ? await res.json() : (await res.json()).content || (await res.json()).data || [] : [];
-
-        const staffData = await getArray(staffRes);
-        const merchantData = await getArray(merchantsRes);
-        const branchData = await getArray(branchesRes);
-        const mccData = await getArray(mccRes);
-        const terminalData = await getArray(terminalsRes);
-
-        const safeMatch = (val: any) => {
-          if (!val) return false;
-          return val.toString().toLowerCase().includes(q);
-        };
-
-        setSearchResults({
-          staff: staffData.filter((u: any) => 
-            safeMatch(u.name) || 
-            safeMatch(u.fullName) || 
-            safeMatch(u.email)
-          ),
-          merchants: merchantData.filter((m: any) => 
-            safeMatch(m.merchantName) || 
-            safeMatch(m.regNumber) ||
-            safeMatch(m.regDate)
-          ),
-          branches: branchData.filter((b: any) => 
-            safeMatch(b.branchCode) || 
-            safeMatch(b.branchName) ||
-            safeMatch(b.merchantName) ||
-            safeMatch(b.city) ||
-            safeMatch(b.phone)
-          ),
-          mcc: mccData.filter((m: any) => 
-            safeMatch(m.mccCode) || 
-            safeMatch(m.mccName) ||
-            safeMatch(m.description)
-          ),
-          terminals: terminalData.filter((t: any) => 
-            safeMatch(t.terminalId) || 
-            safeMatch(t.terminalCode) || 
-            safeMatch(t.terminalName) ||
-            safeMatch(t.terminalType) ||
-            safeMatch(t.merchantName) ||
-            safeMatch(t.branchName)
-          ),
-        });
-
-      } catch (error) {
-        console.error('Search error:', error);
-      } finally {
-        setIsSearchLoading(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(delaySearch);
-  }, [searchQuery]);
-
-  // ----------------------------------------------------------------------
-  // 2. Fetch Notifications & Actions
-  // ----------------------------------------------------------------------
-  const fetchNotifications = async (isPolling = false) => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    
-    if (!isPolling) setIsLoadingNotifications(true); 
-
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/notifications`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/notifications`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (response.ok) {
-        const data = await response.json();
-        const items = Array.isArray(data) ? data : (data.content || data.data || data.notifications || []);
-        setNotifications(items);
+      if (res.ok) {
+        const data = await res.json();
+        const rawItems: any[] = Array.isArray(data)
+          ? data
+          : (data.content || data.data || data.notifications || []);
+        
+        // 1. Individually dismissed items
+        const dismissed = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+        const dismissedSet = new Set(dismissed.map(String));
+
+        // 2. Individual Category Settings toggles from localStorage
+        const notifMerchant = localStorage.getItem('notif_merchant') !== 'false';
+        const notifBranch   = localStorage.getItem('notif_branch') !== 'false';
+        const notifSecurity = localStorage.getItem('notif_security') !== 'false';
+
+        const filtered = rawItems.filter(item => {
+          // If closed via X button
+          if (dismissedSet.has(String(item.id))) return false;
+
+          const itemType = (item.type || '').toUpperCase();
+          const itemText = ((item.title || '') + ' ' + (item.message || '')).toLowerCase();
+
+          // Merchant alerts category toggle
+          if (!notifMerchant && (itemType === 'MERCHANT' || itemText.includes('merchant'))) {
+            return false;
+          }
+          // Branch & Terminal alerts category toggle
+          if (!notifBranch && (itemType === 'BRANCH' || itemType === 'TERMINAL' || itemText.includes('branch') || itemText.includes('terminal'))) {
+            return false;
+          }
+          // System & Security alerts category toggle
+          if (!notifSecurity && (itemType === 'SECURITY' || itemText.includes('security') || itemText.includes('password') || itemText.includes('login'))) {
+            return false;
+          }
+
+          return true;
+        });
+
+        setNotifications(filtered);
       }
     } catch (err) {
       console.error('Failed to load notifications:', err);
@@ -188,58 +136,204 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
     }
   };
 
-  useEffect(() => {
-    fetchNotifications(); 
-    const pollInterval = setInterval(() => fetchNotifications(true), 30000);
-    return () => clearInterval(pollInterval);
-  }, []);
+  const handleDismissNotification = async (id: string | number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
 
-  useEffect(() => {
-    const handleRefresh = () => fetchNotifications(true);
-    window.addEventListener('refreshNotifications', handleRefresh);
-    return () => window.removeEventListener('refreshNotifications', handleRefresh);
-  }, []);
+    setNotifications(prev => prev.filter(n => String(n.id) !== String(id)));
 
-  const checkIsRead = (item: NotificationItem) => item.isRead || item.read || item.status === 'READ';
+    const dismissed = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+    if (!dismissed.includes(String(id))) {
+      dismissed.push(String(id));
+      localStorage.setItem('dismissedNotifications', JSON.stringify(dismissed));
+    }
 
-  const handleMarkAsRead = async (id: string | number, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
     const token = localStorage.getItem('token');
     if (!token) return;
-
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true, read: true, status: 'READ' } : n));
-
     try {
-      await fetch(`${API_BASE_URL}/api/v1/notifications/${id}/read`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}` }
+      await fetch(`${API_BASE_URL}/api/v1/notifications/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
       });
+    } catch { /* ignore */ }
+  };
+
+  const handleClearAllNotifications = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const currentIds = notifications.map(n => String(n.id));
+    setNotifications([]);
+
+    const dismissed = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
+    currentIds.forEach(id => {
+      if (!dismissed.includes(id)) dismissed.push(id);
+    });
+    localStorage.setItem('dismissedNotifications', JSON.stringify(dismissed));
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      await fetch(`${API_BASE_URL}/api/v1/notifications/clear-all`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch { /* ignore */ }
+  };
+
+  // ── Polling — only when enabled ────────────────────────────────────────
+  useEffect(() => {
+    if (!notificationsEnabled) {
+      setNotifications([]);
+      setIsNotificationOpen(false);
+      return;
+    }
+    setIsLoadingNotifications(true);
+    fetchNotifications().finally(() => setIsLoadingNotifications(false));
+    const poll = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(poll);
+  }, [notificationsEnabled]);
+
+  // ── Sync from Settings (same-tab custom event + cross-tab storage) ─────
+  useEffect(() => {
+    const sync = () => {
+      const stored = localStorage.getItem('notificationsEnabled');
+      const isEnabled = stored === null ? true : stored === 'true';
+      setNotificationsEnabled(isEnabled);
+      if (!isEnabled) {
+        setNotifications([]);
+        setIsNotificationOpen(false);
+      } else {
+        fetchNotifications();
+      }
+    };
+    window.addEventListener('storage', sync);
+    window.addEventListener('settingsChanged', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('settingsChanged', sync);
+    };
+  }, []);
+
+  // ── Click outside to close dropdowns ──────────────────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(e.target as Node))
+        setIsNotificationOpen(false);
+      if (profileRef.current && !profileRef.current.contains(e.target as Node))
+        setIsProfileOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ── Profile fetch ──────────────────────────────────────────────────────
+  const convertUrlToBase64AndSave = async (imageUrl: string) => {
+    if (!imageUrl || imageUrl.startsWith('data:')) return;
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(imageUrl, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (res.ok) {
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const b64 = reader.result as string;
+          if (b64?.startsWith('data:')) {
+            localStorage.setItem('adminProfileImage', b64);
+            localStorage.setItem('userAvatar', b64);
+            setAvatar(b64);
+          }
+        };
+        reader.readAsDataURL(blob);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const fetchUserProfile = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/admin/staff-users/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.fullName) { localStorage.setItem('userName', data.fullName); setUserName(data.fullName); }
+        if (data?.role)     { localStorage.setItem('userRole', data.role);     setUserRole(data.role); }
+        const local = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+        if (data?.profileImageUrl?.trim()) {
+          const url = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
+            ? data.profileImageUrl
+            : `${API_BASE_URL}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+          if (local?.startsWith('data:')) { setAvatar(local); }
+          else { localStorage.setItem('adminProfileImage', url); localStorage.setItem('userAvatar', url); setAvatar(url); convertUrlToBase64AndSave(url); }
+        } else if (local) {
+          setAvatar(local);
+          if (!local.startsWith('data:') && local.startsWith('http')) convertUrlToBase64AndSave(local);
+        }
+      }
     } catch (err) {
-      console.error('Error marking as read:', err);
+      console.error('Profile fetch failed:', err);
+      const fb = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+      if (fb) setAvatar(fb);
     }
   };
 
-  const handleMarkAllAsRead = async () => {
-    const unreadItems = notifications.filter(n => !checkIsRead(n));
-    if (unreadItems.length === 0) return;
+  useEffect(() => {
+    const syncProfile = () => {
+      const a = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+      if (a) setAvatar(a);
+      const n = localStorage.getItem('userName'); if (n) setUserName(n);
+      const r = localStorage.getItem('userRole'); if (r) setUserRole(r);
+      fetchUserProfile();
+    };
+    const syncNotif = () => {
+      if (localStorage.getItem('notificationsEnabled') !== 'false') {
+        fetchNotifications();
+      }
+    };
+    window.addEventListener('profileUpdated', syncProfile);
+    window.addEventListener('avatarUpdated', syncProfile);
+    window.addEventListener('refreshNotifications', syncNotif);
+    fetchUserProfile();
+    return () => {
+      window.removeEventListener('profileUpdated', syncProfile);
+      window.removeEventListener('avatarUpdated', syncProfile);
+      window.removeEventListener('refreshNotifications', syncNotif);
+    };
+  }, []);
 
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true, status: 'READ' })));
+  // ── Notification helpers ───────────────────────────────────────────────
+  const checkIsRead = (item: NotificationItem) =>
+    typeof item.isRead === 'boolean' ? item.isRead :
+    typeof item.read   === 'boolean' ? item.read   :
+    item.status ? item.status === 'READ' : false;
 
+  const handleMarkAsRead = async (id: string | number, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     const token = localStorage.getItem('token');
     if (!token) return;
-
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true, read: true, status: 'READ' } : n));
     try {
-      await Promise.all(
-        unreadItems.map(item =>
-          fetch(`${API_BASE_URL}/api/v1/notifications/${item.id}/read`, {
-            method: 'PUT',
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-        )
-      );
-    } catch (err) {
-      console.error('Error marking all as read:', err);
-    }
+      await fetch(`${API_BASE_URL}/api/v1/notifications/${id}/read`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      });
+    } catch { /* ignore */ }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    const unread = notifications.filter(n => !checkIsRead(n));
+    if (!unread.length) return;
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true, status: 'READ' })));
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      await Promise.all(unread.map(item =>
+        fetch(`${API_BASE_URL}/api/v1/notifications/${item.id}/read`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+        })
+      ));
+    } catch { /* ignore */ }
   };
 
   // ----------------------------------------------------------------------
@@ -262,206 +356,132 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
   }, []);
 
   const handleLogout = () => {
-    localStorage.clear();
+    ['token','mmspg_token','userId','merchantId','mmspg_merchant_id','userName','userRole','userAvatar','adminProfileImage']
+      .forEach(k => localStorage.removeItem(k));
     navigate('/login');
   };
 
   const unreadCount = notifications.filter(n => !checkIsRead(n)).length;
-  const totalResults = searchResults.staff.length + searchResults.merchants.length + searchResults.branches.length + searchResults.terminals.length + searchResults.mcc.length;
+
+  const formatTimeAgo = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return days < 7 ? `${days}d ago` : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  };
+
+  const portalTitle =
+    userRole === 'MERCHANT' ? t('header.merchantPortal') :
+    userRole === 'SUPPORT'  ? t('header.supportPortal')  :
+    userRole === 'AUDITOR'  ? t('header.auditorPortal')  :
+    t('header.adminPortal');
 
   return (
-    <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 shadow-sm z-[100] relative">
+    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 h-16 flex items-center justify-between px-6 shadow-sm z-10 transition-colors duration-200">
+      {/* Left: Sidebar Toggle + Title + Search */}
       <div className="flex items-center flex-1">
         {onToggleSidebar && (
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="mr-3 p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none"
-            title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            aria-label="Toggle sidebar"
+            className="mr-3 p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none"
+            title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-label="Toggle Sidebar"
           >
             <Menu className="h-5 w-5" />
           </button>
         )}
-        <h2 className="text-xl font-semibold text-slate-800 hidden sm:block">
-          {userRole === 'MERCHANT' ? 'Merchant Portal' : userRole === 'SUPPORT' ? 'Support Portal' : 'Admin Portal'}
+        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 hidden md:block">
+          {portalTitle}
         </h2>
-        
-        {/* ========================================== */}
-        {/* Search Bar with Dropdown                   */}
-        {/* ========================================== */}
-        <div className="ml-8 relative hidden lg:block max-w-md w-full" ref={searchRef}>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-slate-400" />
-            </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => searchQuery.trim() && setIsSearchOpen(true)}
-              className="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-colors"
-              placeholder="Search merchants, branches, terminals..."
-            />
-            {isSearchLoading && (
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-              </div>
-            )}
+        <div className="ml-8 relative hidden lg:block max-w-md w-full">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-slate-400" />
           </div>
-
-          {/* Search Dropdown Results */}
-          {isSearchOpen && (
-            <div className="absolute top-full left-0 mt-2 w-full max-h-[400px] overflow-y-auto bg-white rounded-xl shadow-2xl border border-slate-200 z-50">
-              {isSearchLoading ? (
-                <div className="p-4 text-center text-sm text-slate-500">Searching...</div>
-              ) : totalResults === 0 ? (
-                <div className="p-4 text-center text-sm text-slate-500">No results found for "{searchQuery}"</div>
-              ) : (
-                <div className="py-2">
-                  {/* Merchants */}
-                  {searchResults.merchants.length > 0 && (
-                    <div className="px-3 pb-2">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-2">Merchants</div>
-                      {searchResults.merchants.map((m: any) => (
-                        <Link key={m.id || m.regNumber} to="/admin/merchant-approvals" onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg">
-                          <Store className="h-4 w-4 text-emerald-500" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{m.merchantName}</p>
-                            <p className="text-xs text-slate-500 truncate">Reg: {m.regNumber} • {new Date(m.regDate).toLocaleDateString()}</p>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Branches */}
-                  {searchResults.branches.length > 0 && (
-                    <div className="px-3 pb-2 border-t border-slate-100 pt-2">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-2">Branches</div>
-                      {searchResults.branches.map((b: any) => (
-                        <Link key={b.branchId || b.branchCode} to="/admin/branches" onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg">
-                          <MapPin className="h-4 w-4 text-amber-500" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{b.branchName} ({b.branchCode})</p>
-                            <p className="text-xs text-slate-500 truncate">{b.merchantName} • {b.city}</p>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Terminals */}
-                  {searchResults.terminals.length > 0 && (
-                    <div className="px-3 pb-2 border-t border-slate-100 pt-2">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-2">Terminals</div>
-                      {searchResults.terminals.map((t: any) => (
-                        <Link key={t.terminalId || t.terminalCode} to="/admin/terminals" onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg">
-                          <Server className="h-4 w-4 text-blue-500" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{t.terminalName} ({t.terminalCode})</p>
-                            <p className="text-xs text-slate-500 truncate">{t.merchantName} • {t.terminalType}</p>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* MCC */}
-                  {searchResults.mcc.length > 0 && (
-                    <div className="px-3 pb-2 border-t border-slate-100 pt-2">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-2">MCC</div>
-                      {searchResults.mcc.map((m: any) => (
-                        <Link key={m.id || m.mccCode} to="/admin/mcc-configuration" onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg">
-                          <Tags className="h-4 w-4 text-purple-500" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{m.mccCode} - {m.mccName}</p>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Staff */}
-                  {searchResults.staff.length > 0 && (
-                    <div className="px-3 pb-2 border-t border-slate-100 pt-2">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 px-2">Staff</div>
-                      {searchResults.staff.map((s: any) => (
-                        <Link key={s.id} to="/admin/staff-users" onClick={() => setIsSearchOpen(false)} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg">
-                          <ShieldCheck className="h-4 w-4 text-slate-500" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{s.name || s.fullName}</p>
-                            <p className="text-xs text-slate-500 truncate">{s.email}</p>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                </div>
-              )}
-            </div>
-          )}
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm transition-colors"
+            placeholder={t('header.searchPlaceholder')}
+          />
         </div>
       </div>
 
+      {/* Right: Bell + Divider + Avatar */}
       <div className="flex items-center space-x-4">
-        {/* ========================================== */}
-        {/* Notification Bell                          */}
-        {/* ========================================== */}
+
+        {/* ─── Notification Bell ─── */}
         <div className="relative" ref={notificationRef}>
-          <button 
+          <button
             type="button"
             onClick={() => {
-              setIsNotificationOpen(!isNotificationOpen);
+              if (!notificationsEnabled) return;
+              setIsNotificationOpen(v => !v);
               setIsProfileOpen(false);
-              setIsSearchOpen(false);
             }}
-            className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors relative"
+            className={`p-2 rounded-full transition-colors relative focus:outline-none ${
+              notificationsEnabled
+                ? 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700'
+                : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+            }`}
+            title={notificationsEnabled ? t('notifications.title') : t('notifications.disabled')}
           >
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full animate-pulse">
+            {notificationsEnabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+            {notificationsEnabled && unreadCount > 0 && (
+              <span className="absolute top-1 right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
 
-          {isNotificationOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-xl border border-slate-200 ring-1 ring-black/5 origin-top-right transition-all z-50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-                <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-slate-800 text-sm">Notifications</span>
+          {isNotificationOpen && notificationsEnabled && (
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
+              {/* Dropdown header */}
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{t('notifications.title')}</span>
                   {unreadCount > 0 && (
-                    <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium">
-                      {unreadCount} new
+                    <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-medium">
+                      {t('notifications.newBadge', { count: unreadCount })}
                     </span>
                   )}
                 </div>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={handleMarkAllAsRead}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors"
-                  >
-                    <CheckCheck className="h-3.5 w-3.5" />
-                    Mark all read
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button onClick={handleMarkAllAsRead} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 font-medium flex items-center gap-1">
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      {t('notifications.markAllRead')}
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button onClick={handleClearAllNotifications} className="text-xs text-slate-400 hover:text-rose-600 font-medium flex items-center gap-1" title="Clear all">
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t('common.clear') || 'Clear'}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+              {/* List */}
+              <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
                 {isLoadingNotifications ? (
-                  <div className="py-10 flex flex-col items-center justify-center text-slate-400">
+                  <div className="py-10 flex flex-col items-center text-slate-400">
                     <Loader2 className="h-6 w-6 animate-spin text-blue-500 mb-2" />
-                    <span className="text-xs">Loading notifications...</span>
+                    <span className="text-xs">{t('notifications.loading')}</span>
                   </div>
                 ) : notifications.length === 0 ? (
-                  <div className="py-10 flex flex-col items-center justify-center text-center px-4">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mb-2 text-slate-400">
+                  <div className="py-10 flex flex-col items-center text-center px-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-2 text-slate-400">
                       <Inbox className="h-5 w-5" />
                     </div>
-                    <p className="text-sm font-medium text-slate-700">No new notifications</p>
-                    <p className="text-xs text-slate-400 mt-1">You are all caught up!</p>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{t('notifications.noNotifications')}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('notifications.allCaughtUp')}</p>
                   </div>
                 ) : (
                   notifications.map((item) => {
@@ -469,36 +489,43 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
                     return (
                       <div
                         key={item.id}
-                        onClick={(e) => !isRead && handleMarkAsRead(item.id, e)}
-                        className={`p-3.5 transition-colors cursor-pointer flex items-start gap-3 ${
-                          isRead ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50/70'
+                        onClick={() => !isRead && handleMarkAsRead(item.id)}
+                        className={`p-3.5 cursor-pointer flex items-start gap-3 transition-colors ${
+                          isRead
+                            ? 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
+                            : 'bg-blue-50/40 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                         }`}
                       >
-                        <div className="pt-1.5 flex-shrink-0">
+                        <div className="pt-1.5 shrink-0">
                           <span className={`block h-2 w-2 rounded-full ${isRead ? 'bg-transparent' : 'bg-blue-600'}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-1">
-                            <p className={`text-xs ${isRead ? 'font-medium text-slate-700' : 'font-semibold text-slate-900'} truncate`}>
+                            <p className={`text-xs truncate ${isRead ? 'font-medium text-slate-700 dark:text-slate-300' : 'font-semibold text-slate-900 dark:text-slate-100'}`}>
                               {item.title}
                             </p>
-                            <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                              {new Date(item.createdAt).toLocaleDateString()}
-                            </span>
+                            <span className="text-[10px] text-slate-400 whitespace-nowrap">{formatTimeAgo(item.createdAt)}</span>
                           </div>
-                          <p className="text-xs text-slate-600 mt-0.5 line-clamp-2 leading-relaxed">
-                            {item.message}
-                          </p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-2">{item.message}</p>
                         </div>
-                        {!isRead && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!isRead && (
+                            <button
+                              title={t('notifications.markAsRead')}
+                              onClick={(e) => handleMarkAsRead(item.id, e)}
+                              className="text-slate-400 hover:text-blue-600 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button
-                            title="Mark as read"
-                            onClick={(e) => handleMarkAsRead(item.id, e)}
-                            className="text-slate-400 hover:text-blue-600 p-1 hover:bg-white rounded transition-colors"
+                            title={t('notifications.dismiss')}
+                            onClick={(e) => handleDismissNotification(item.id, e)}
+                            className="text-slate-400 hover:text-rose-600 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
                           >
-                            <Check className="h-3.5 w-3.5" />
+                            <X className="h-3.5 w-3.5" />
                           </button>
-                        )}
+                        </div>
                       </div>
                     );
                   })
@@ -507,47 +534,44 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
             </div>
           )}
         </div>
-        
-        <div className="h-6 w-px bg-slate-200 mx-2"></div>
 
-        {/* ========================================== */}
-        {/* User Profile                               */}
-        {/* ========================================== */}
+        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2" />
+
+        {/* ─── Profile Dropdown ─── */}
         <div className="relative" ref={profileRef}>
-          <button 
-            onClick={() => {
-              setIsProfileOpen(!isProfileOpen);
-              setIsNotificationOpen(false);
-              setIsSearchOpen(false);
-            }}
-            className="flex items-center space-x-3 rounded-lg p-1 hover:bg-slate-50"
+          <button
+            onClick={() => { setIsProfileOpen(v => !v); setIsNotificationOpen(false); }}
+            className="flex items-center space-x-3 focus:outline-none rounded-lg p-1 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
-            <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 overflow-hidden">
-              {avatarUrl ? (
-                // 🔴 Backend URL (API_BASE_URL) ကို ရှေ့ကနေ ပေါင်းထည့်ပေးလိုက်ပါသည်
-                <img 
-                  src={avatarUrl.startsWith('http') ? avatarUrl : `${API_BASE_URL}${avatarUrl}`} 
-                  alt="Avatar" 
-                  className="h-full w-full object-cover" 
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }} 
-                />
+            <div className="h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800 overflow-hidden">
+              {avatar ? (
+                <img src={avatar} alt="Profile" className="h-full w-full rounded-full object-cover"
+                  onError={() => { if (avatar?.startsWith('http')) convertUrlToBase64AndSave(avatar); setAvatar(null); }} />
               ) : (
-                <User className="h-5 w-5" />
+                <span className="font-bold text-sm">{userName.charAt(0).toUpperCase()}</span>
               )}
             </div>
-            <div className="hidden md:flex flex-col text-left">
-              <span className="text-sm font-medium text-slate-700 leading-none">{userName}</span>
-              <span className="text-xs text-slate-500 mt-1 leading-none">{userRole}</span>
+            <div className="hidden md:flex items-center text-left">
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-none mb-1">{userName}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 leading-none">{userRole}</span>
+              </div>
+              <ChevronDown className="ml-2 h-4 w-4 text-slate-400" />
             </div>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </button>
-          
+
           {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 border border-slate-200 z-50">
-              {/* 🔴 onClick ကို ထပ်ပေါင်းထည့်လိုက်ပါသည် */}
-             {/* 🔴 Link အစား button ပြောင်းသုံးပြီး ရောက်ပြီးသားဖြစ်နေပါက Refresh လုပ်ရန် ထပ်တိုးထားသည် */}
-              <button 
-                onClick={() => {
+            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg py-1 border border-slate-200 dark:border-slate-700 z-50">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 md:hidden">
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{userName}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{t('profile.account', { role: userRole })}</p>
+              </div>
+              <button
+                onMouseDown={() => {
+                  const role = (userRole || localStorage.getItem('userRole') || 'ADMIN').toUpperCase();
+                  const base = role === 'SUPPORT' ? '/support' : role === 'AUDITOR' ? '/auditor' : '/admin';
+                  navigate(`${base}/profile`);
                   setIsProfileOpen(false);
                   // 🔴 '/admin/profile' သို့ သွားရန် ညွှန်ကြားခြင်း
                   if (window.location.pathname === '/admin/profile') {
@@ -556,15 +580,17 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
                     navigate('/admin/profile'); 
                   }
                 }}
-                className="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left transition-colors"
+                className="flex items-center w-full px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
-                <User className="mr-2 h-4 w-4" /> Profile
+                <User className="mr-2 h-4 w-4" />
+                {t('nav.profile')}
               </button>
-              <button 
-                onClick={handleLogout} 
-                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              <button
+                onMouseDown={handleLogout}
+                className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
-                <LogOut className="mr-2 h-4 w-4" /> Logout
+                <LogOut className="mr-2 h-4 w-4" />
+                {t('nav.logout')}
               </button>
             </div>
           )}

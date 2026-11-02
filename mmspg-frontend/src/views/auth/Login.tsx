@@ -1,21 +1,52 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Store, ShieldCheck, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { 
+  Store, 
+  ShieldCheck, 
+  Mail, 
+  Lock, 
+  AlertCircle, 
+  ArrowRight, 
+  Eye, 
+  EyeOff, 
+  Sun, 
+  Moon, 
+  Globe, 
+  Ban, 
+  AlertTriangle,
+  PhoneCall
+} from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
+import merchantLogo from '../../assets/merchant-logo.png';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const { theme, toggleTheme } = useTheme();
 
   // Tab State: 'MERCHANT' or 'STAFF'
   const [portalType, setPortalType] = useState<'MERCHANT' | 'STAFF'>('MERCHANT');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Suspended Account Alert Modal State
+  const [isSuspendedModalOpen, setIsSuspendedModalOpen] = useState(false);
+  const [suspendedDetails, setSuspendedDetails] = useState('');
 
   const handleTabChange = (type: 'MERCHANT' | 'STAFF') => {
     setPortalType(type);
     setError('');
+  };
+
+  const toggleLanguage = () => {
+    const nextLang = i18n.language === 'my' ? 'en' : 'my';
+    i18n.changeLanguage(nextLang);
+    localStorage.setItem('lang', nextLang);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -25,18 +56,36 @@ export default function Login() {
 
     try {
       if (portalType === 'MERCHANT') {
-        // 🏪 Merchant Login Endpoint
+        // Merchant Login Endpoint
         const response = await fetch('http://127.0.0.1:8004/api/v1/merchant-portal/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: email.trim(), password }),
         });
 
         const data = await response.json();
+
+        // Check for account suspension / disabled status
+        if (
+          response.status === 403 || 
+          data.suspended || 
+          (data.error && String(data.error).includes('SUSPENDED')) ||
+          (data.message && String(data.message).toLowerCase().includes('suspend')) ||
+          (data.message && String(data.message).toLowerCase().includes('not active'))
+        ) {
+          const msg = data.message || (i18n.language === 'my' 
+            ? 'သင့် Merchant အကောင့်ကို Administrator မှ ဆိုင်းငံ့ (Suspend) ထားပါသည်။' 
+            : 'Your merchant account has been suspended by system administration.');
+          setSuspendedDetails(msg);
+          setIsSuspendedModalOpen(true);
+          setError(msg);
+          return;
+        }
+
         if (!response.ok) {
-          throw new Error(data.message || 'Invalid merchant credentials');
+          throw new Error(data.message || data.error || (i18n.language === 'my' ? 'Email သို့မဟုတ် Password မှားယွင်းနေပါသည်' : 'Invalid merchant credentials'));
         }
 
         // Store Merchant session data
@@ -56,21 +105,37 @@ export default function Login() {
 
         navigate('/merchant/dashboard');
       } else {
-
-        // 🛡️ Staff / Admin Login Endpoint
+        // Staff / Admin Login Endpoint
         const response = await fetch('http://127.0.0.1:8004/api/v1/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: email.trim(), password }),
         });
 
         const data = await response.json();
         console.log("Login Response Data: ", data);
 
+        // Check for staff account suspension
+        if (
+          response.status === 403 || 
+          data.suspended || 
+          (data.error && String(data.error).includes('SUSPENDED')) ||
+          (data.message && String(data.message).toLowerCase().includes('suspend')) ||
+          (data.message && String(data.message).toLowerCase().includes('not active'))
+        ) {
+          const msg = data.message || (i18n.language === 'my' 
+            ? 'သင့် Staff အကောင့်ကို ဆိုင်းငံ့ (Suspend) ထားပါသည်။ Administrator ထံ ဆက်သွယ်ပါ။' 
+            : 'Your staff account has been suspended. Please contact your system administrator.');
+          setSuspendedDetails(msg);
+          setIsSuspendedModalOpen(true);
+          setError(msg);
+          return;
+        }
+
         if (!response.ok) {
-          throw new Error(data.message || 'Invalid staff credentials');
+          throw new Error(data.message || data.error || (i18n.language === 'my' ? 'Email သို့မဟုတ် Password မှားယွင်းနေပါသည်' : 'Invalid staff credentials'));
         }
 
         // Store Staff session data
@@ -80,150 +145,191 @@ export default function Login() {
         localStorage.setItem('userName', data.fullName);
         localStorage.setItem('userRole', data.role);
 
-
-        if (data.profileImage || data.avatar || data.image) {
-          localStorage.setItem('userAvatar', data.profileImage || data.avatar || data.image);
-        } else {
-          localStorage.removeItem('userAvatar');
-        }
-
-
-        if (data.role === 'ADMIN') {
-          navigate('/admin/dashboard');
-        } else if (data.role === 'SUPPORT') {
+        // Navigate staff based on their specific role (SUPPORT, AUDITOR, ADMIN)
+        const role = (data.role || '').toUpperCase();
+        if (role === 'SUPPORT') {
           navigate('/support/dashboard');
-        } else if (data.role === 'AUDITOR') {
+        } else if (role === 'AUDITOR') {
           navigate('/auditor/dashboard');
         } else {
           navigate('/admin/dashboard');
         }
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login. Please try again.');
+      if (err.message && err.message.includes('Failed to fetch')) {
+        setError(i18n.language === 'my'
+          ? 'Backend Server သို့ ချိတ်ဆက်၍မရပါ (http://127.0.0.1:8004)။ ကျေးဇူးပြု၍ Backend Server ဖွင့်ထားခြင်း ရှိ/မရှိ စစ်ဆေးပေးပါ။'
+          : 'Cannot connect to backend server (http://127.0.0.1:8004). Please ensure the backend is running.');
+      } else {
+        setError(err.message || (i18n.language === 'my' ? 'ဝင်ရောက်မှု အမှားဖြစ်ပေါ်ခဲ့ပါသည်။ ထပ်မံကြိုးစားပါ။' : 'An error occurred during login. Please try again.'));
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-100 p-8 space-y-6">
-        {/* Brand Header */}
-        <div className="text-center">
-          <h1 className="text-2xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
-            PayGateway
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden transition-colors duration-200">
+      {/* Background Decorative Radial Glows */}
+      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
+
+      {/* Top Header Controls (Language + Theme) */}
+      <div className="absolute top-6 right-6 flex items-center gap-2 z-20">
+        <button
+          onClick={toggleLanguage}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-sm hover:bg-white dark:hover:bg-slate-700 transition-all"
+          title="Switch Language"
+        >
+          <Globe className="h-3.5 w-3.5 text-blue-500" />
+          <span>{i18n.language === 'my' ? '🇲🇲 မြန်မာ' : '🇬🇧 English'}</span>
+        </button>
+
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-sm hover:bg-white dark:hover:bg-slate-700 transition-all"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
+        </button>
+      </div>
+
+      {/* Main Login Container */}
+      <div className="max-w-md w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-700/80 p-8 sm:p-9 space-y-6 relative z-10 transition-all">
+        
+        {/* Merchant & Payment Gateway Brand Logo */}
+        <div className="text-center flex flex-col items-center">
+          <div className="mb-3 flex items-center justify-center">
+            <img 
+              src={merchantLogo} 
+              alt="PaymentGateWay Logo" 
+              className="h-20 w-auto object-contain filter drop-shadow-md hover:scale-105 transition-transform duration-200"
+            />
+          </div>
+
+          {/* Subtitle Badge */}
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200/80 dark:border-blue-800/60 text-blue-700 dark:text-blue-300 text-[11px] font-semibold mb-2 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
+            <span>{t('auth.merchantTabLabel') || 'Merchant'} & Financial Portal</span>
+          </div>
+
+          {/* Single Solid Color Title */}
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            PaymentGateWay
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Secure Payment Gateway Portal
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            {i18n.language === 'my' 
+              ? 'လုံခြုံစိတ်ချရသော မြန်မာ့ငွေပေးချေမှု ပလက်ဖောင်း' 
+              : 'Secure High-Velocity Payment Gateway Platform'}
           </p>
         </div>
 
         {/* Portal Role Tabs */}
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 dark:bg-slate-750 p-1.5 border border-slate-200/60 dark:border-slate-700/60">
           <button
             type="button"
             onClick={() => handleTabChange('MERCHANT')}
-            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${portalType === 'MERCHANT'
-              ? 'bg-white text-indigo-700 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-              }`}
+            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition-all duration-200 ${
+              portalType === 'MERCHANT'
+                ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-md ring-1 ring-black/5 dark:ring-white/10'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
           >
             <Store className="h-4 w-4" />
-            <span>Merchant</span>
+            <span>{t('auth.merchantTabLabel')}</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleTabChange('STAFF')}
-            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${portalType === 'STAFF'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-              }`}
+            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition-all duration-200 ${
+              portalType === 'STAFF'
+                ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
           >
             <ShieldCheck className="h-4 w-4" />
-            <span>Staff / Admin</span>
+            <span>{t('auth.staffTabLabel')}</span>
           </button>
         </div>
 
-        {/* Dynamic Context Header */}
-        <div className="border-b border-slate-100 pb-3">
-          <h2 className="text-lg font-bold text-slate-900">
-            {portalType === 'MERCHANT' ? 'Merchant Portal Sign In' : 'Staff & Admin Sign In'}
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {portalType === 'MERCHANT'
-              ? 'Access transaction reports, settlements, and payment tools'
-              : 'Authorized bank & gateway operators only'}
-          </p>
+        {/* Context Subtitle */}
+        <div className="border-b border-slate-100 dark:border-slate-700/70 pb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+              {portalType === 'MERCHANT' ? t('auth.merchantPortalSignIn') : t('auth.staffAdminSignIn')}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {portalType === 'MERCHANT' ? t('auth.merchantPortalDesc') : t('auth.staffPortalDesc')}
+            </p>
+          </div>
+          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 uppercase">
+            {portalType}
+          </span>
         </div>
 
-        {/* Error Alert */}
+        {/* Inline Error Alert */}
         {error && (
-          <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-            <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
-            <span>{error}</span>
+          <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs text-rose-700 dark:text-rose-300">
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
+            <span className="leading-relaxed">{error}</span>
           </div>
         )}
 
         {/* Login Form */}
         <form className="space-y-4" onSubmit={handleLogin}>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-              Email Address
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              {t('auth.emailAddress')} *
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-50/50 focus:bg-white"
-                placeholder={portalType === 'MERCHANT' ? 'merchant@business.com' : 'staff@gateway.com'}
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50/70 dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-900"
+                placeholder={portalType === 'MERCHANT' ? 'merchant@business.com' : 'staff@paymentgateway.com'}
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {t('auth.password')} *
+              </label>
+              <a 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/forgot-password');
+                }}
+                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+              >
+                {t('auth.forgotPassword')}
+              </a>
+            </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-slate-50/50 focus:bg-white"
+                className="w-full pl-10 pr-11 py-2.5 border border-slate-300 dark:border-slate-600 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50/70 dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-900"
                 placeholder="••••••••"
                 required
               />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 cursor-pointer text-slate-600">
-              <input
-                id="remember-me"
-                type="checkbox"
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-              />
-              <span className="block text-sm text-slate-700">
-                Remember me
-              </span>
-            </div>
-            <div className="text-sm">
-              {/* 🔴 href အစား onClick ဖြင့် navigate ကို အသုံးပြုထားပါသည် */}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault(); // # ကြောင့် စာမျက်နှာခုန်ခြင်းကို တားပေးသည်
-                  navigate('/forgot-password');
-                }}
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors focus:outline-none"
+                tabIndex={-1}
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               >
-                Forgot password?
-              </a>
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
           </div>
 
@@ -231,35 +337,87 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl shadow-sm text-sm font-semibold text-white transition-all disabled:opacity-60 ${portalType === 'MERCHANT'
-                ? 'bg-indigo-600 hover:bg-indigo-700'
-                : 'bg-slate-900 hover:bg-slate-800'
-                }`}
+              className={`w-full flex justify-center items-center gap-2 py-3 px-4 rounded-xl shadow-md text-sm font-bold text-white transition-all disabled:opacity-60 ${
+                portalType === 'MERCHANT'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20'
+                  : 'bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-700 shadow-slate-900/20 dark:shadow-indigo-500/20'
+              }`}
             >
-              <span>{isLoading ? 'Signing in...' : portalType === 'MERCHANT' ? 'Sign in to Merchant Portal' : 'Sign in as Staff'}</span>
+              <span>
+                {isLoading 
+                  ? t('auth.signingIn') 
+                  : portalType === 'MERCHANT' 
+                    ? t('auth.signInMerchant') 
+                    : t('auth.signInStaff')}
+              </span>
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
         </form>
 
-        {/* Merchant Register Link */}
-        {portalType === 'MERCHANT' ? (
-          <div className="border-t border-slate-100 pt-4 text-center">
-            <p className="text-xs text-slate-500">
-              New merchant?{' '}
-              <Link to="/register" className="font-semibold text-indigo-600 hover:underline">
-                Apply for Merchant Account
-              </Link>
-            </p>
-          </div>
-        ) : (
-          <div className="border-t border-slate-100 pt-4 text-center">
-            <p className="text-xs text-slate-400">
-              Internal system. Unauthorized access attempts are logged and monitored.
-            </p>
-          </div>
-        )}
+        {/* Security Footer Notice */}
+        <div className="border-t border-slate-100 dark:border-slate-700/70 pt-4 text-center">
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+            {t('auth.securityNotice')}
+          </p>
+        </div>
       </div>
+
+      {/* ─── SUSPENDED ACCOUNT ALERT MODAL ─── */}
+      {isSuspendedModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-rose-200 dark:border-rose-900/60 p-6 sm:p-7 text-center space-y-4">
+            
+            {/* Warning Icon Badge */}
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/50 flex items-center justify-center text-rose-600 dark:text-rose-400 shadow-inner">
+              <Ban className="h-8 w-8" />
+            </div>
+
+            {/* Title & Subtitle */}
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 text-xs font-bold uppercase tracking-wider mb-2">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span>Account Status: Suspended</span>
+              </div>
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                {i18n.language === 'my' ? 'အကောင့်ဆိုင်းငံ့ခံထားရပါသည်' : 'Account Suspended'}
+              </h3>
+              <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                {i18n.language === 'my'
+                  ? 'သင့်အကောင့်ကို Administrator မှ ဆိုင်းငံ့ (Suspend) ထားပါသည်။ PaymentGateWay စနစ်နှင့် ပတ်သက်သည့် လုပ်ငန်းစဉ်များအားလုံးကို ယာယီကန့်သတ်ထားပါသည်။'
+                  : 'Your account has been suspended by system administration. Access to payment operations and dashboard controls has been restricted.'}
+              </p>
+            </div>
+
+            {/* Reason details */}
+            {suspendedDetails && (
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-left text-xs text-slate-700 dark:text-slate-300">
+                <span className="font-semibold text-rose-600 dark:text-rose-400">Notice: </span>
+                {suspendedDetails}
+              </div>
+            )}
+
+            {/* Support Information Box */}
+            <div className="bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 rounded-2xl p-3.5 text-xs text-rose-800 dark:text-rose-300 text-left space-y-1.5">
+              <p className="font-bold flex items-center gap-1.5 text-rose-700 dark:text-rose-300">
+                <PhoneCall className="h-3.5 w-3.5" />
+                {i18n.language === 'my' ? 'ဆက်သွယ်မေးမြန်းရန် အချက်အလက်များ:' : 'Support Contacts:'}
+              </p>
+              <p className="text-slate-600 dark:text-slate-400">• Email: support@paymentgateway.com</p>
+              <p className="text-slate-600 dark:text-slate-400">• Help Desk: +95 9 123 456 789 / +95 1 234 567</p>
+            </div>
+
+            {/* Dismiss Button */}
+            <button
+              type="button"
+              onClick={() => setIsSuspendedModalOpen(false)}
+              className="w-full py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold transition-colors shadow-sm"
+            >
+              {i18n.language === 'my' ? 'သိရှိပါပြီ' : 'I Understand'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

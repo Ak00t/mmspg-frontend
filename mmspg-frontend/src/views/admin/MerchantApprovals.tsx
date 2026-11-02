@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Edit, Ban, X, Search, Plus, Loader2, Check, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Edit, Ban, X, Search, Plus, Loader2, Check, RefreshCw, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface Merchant {
   id: string;
@@ -9,9 +10,18 @@ interface Merchant {
   status: string;
 }
 
+interface MccOption {
+  id: number;
+  mccCode: string;
+  mccName: string;
+}
+
 export default function MerchantApprovals() {
+  const { t } = useTranslation();
   const [merchants, setMerchants] = useState<Merchant[]>([]);
-  const userRole = localStorage.getItem('userRole') || '';
+  const rawRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = rawRole.startsWith('ROLE_') ? rawRole.substring(5) : rawRole;
+  const isAuditor = userRole === 'AUDITOR' || userRole.includes('AUDITOR');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   
@@ -25,7 +35,12 @@ export default function MerchantApprovals() {
   const [editRegNum, setEditRegNum] = useState('');
   const [suspendReason, setSuspendReason] = useState('');
 
-  // Add Form State
+  // Add Form State & Helpers
+  const [availableMccs, setAvailableMccs] = useState<MccOption[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [formError, setFormError] = useState('');
+
   const [addFormData, setAddFormData] = useState({
     businessName: '',
     merchantCode: '',
@@ -37,61 +52,91 @@ export default function MerchantApprovals() {
     mccId: 1
   });
 
-  useEffect(() => {
-    const fetchRealMerchants = async () => {
+  const fetchRealMerchants = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch merchants');
+
+      const data = await response.json();
+      const dataArray = Array.isArray(data) ? data : (data.content || []);
+      
+      const mappedMerchants: Merchant[] = dataArray.map((m: any) => ({
+        id: String(m.merchantId || m.id),
+        merchantName: m.merchantName || m.businessName || 'Unknown',
+        regNumber: m.merchantCode || 'N/A',
+        regDate: m.createdAt ? new Date(m.createdAt).toLocaleDateString() : 'N/A',
+        status: (m.status || 'PENDING').toUpperCase()
+      }));
+
+      setMerchants(mappedMerchants);
+    } catch (error) {
+      console.error("Error fetching merchants:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMccList = async () => {
+    try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!response.ok) throw new Error('Failed to fetch merchants');
-
+      if (!token) return;
+      const response = await fetch('http://127.0.0.1:8004/api/v1/admin/mcc', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
         const data = await response.json();
-        const dataArray = Array.isArray(data) ? data : (data.content || []);
-
-        const realMerchants = dataArray
-          .filter((m: any) => m !== null)
-          .map((m: any) => ({
-            id: m?.merchantId || m?.id || "N/A",
-            merchantName: m?.merchantName || m?.businessName || "Unknown",
-            regNumber: m?.merchantCode || m?.businessRegistrationNo || m?.registrationNumber || "N/A",
-            regDate: m?.createdAt ? new Date(m.createdAt).toLocaleDateString() : "N/A",
-            status: m?.status || "PENDING"
-          }));
-
-        setMerchants(realMerchants);
-      } catch (error) {
-        console.error("Error fetching real data:", error);
-      } finally {
-        setLoading(false);
+        const items = Array.isArray(data) ? data : (data.content || data.data || []);
+        if (items.length > 0) {
+          setAvailableMccs(items);
+          setAddFormData(prev => ({ ...prev, mccId: items[0].id }));
+        }
       }
-    };
+    } catch (e) {
+      console.warn("Could not load MCC options:", e);
+    }
+  };
 
+  useEffect(() => {
     fetchRealMerchants();
+    fetchMccList();
   }, []);
 
-  const handleEditClick = (merchant: Merchant) => {
+  const openEditModal = (merchant: Merchant) => {
     setSelectedMerchant(merchant);
     setEditName(merchant.merchantName);
     setEditRegNum(merchant.regNumber);
     setIsEditModalOpen(true);
   };
 
-  const handleSuspendClick = (merchant: Merchant) => {
+  const openSuspendModal = (merchant: Merchant) => {
     setSelectedMerchant(merchant);
     setSuspendReason('');
     setIsSuspendModalOpen(true);
   };
 
   const openAddModal = () => {
-    setAddFormData({ businessName: '', merchantCode: '', settlementAccountNo: '', contactName: '', email: '', phone: '', rawPassword: '', mccId: 1 });
+    setFormError('');
+    setShowPassword(false);
+    setAddFormData({
+      businessName: '',
+      merchantCode: '',
+      settlementAccountNo: '',
+      contactName: '',
+      email: '',
+      phone: '',
+      rawPassword: '',
+      mccId: availableMccs.length > 0 ? availableMccs[0].id : 1
+    });
     setIsAddModalOpen(true);
   };
 
@@ -100,45 +145,72 @@ export default function MerchantApprovals() {
     setIsSuspendModalOpen(false);
     setIsAddModalOpen(false);
     setSelectedMerchant(null);
+    setFormError('');
   };
 
   const handleRegisterMerchant = async () => {
+    setFormError('');
+
+    // Pre-flight validation
+    if (!addFormData.businessName.trim()) {
+      setFormError("Business Name is required.");
+      return;
+    }
+    if (!addFormData.merchantCode.trim()) {
+      setFormError("Merchant Code is required.");
+      return;
+    }
+    if (!addFormData.settlementAccountNo.trim()) {
+      setFormError("Settlement Account Number is required.");
+      return;
+    }
+    if (!addFormData.email.trim()) {
+      setFormError("Email is required.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(addFormData.email.trim())) {
+      setFormError("Please enter a valid email address (e.g. name@example.com).");
+      return;
+    }
+    if (!addFormData.rawPassword || addFormData.rawPassword.length < 6) {
+      setFormError("Password must be at least 6 characters long.");
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    setIsRegistering(true);
+
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('http://127.0.0.1:8004/api/v1/admin/merchants/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(addFormData)
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          ...addFormData,
+          businessName: addFormData.businessName.trim(),
+          merchantCode: addFormData.merchantCode.trim(),
+          email: addFormData.email.trim(),
+          settlementAccountNo: addFormData.settlementAccountNo.trim(),
+          mccId: Number(addFormData.mccId) || 1
+        })
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to register merchant');
+        throw new Error(responseData.error || responseData.message || 'Failed to register merchant');
       }
 
-      const result = await response.json();
-
-      setMerchants(prevMerchants => [
-        {
-          id: result.merchantId,
-          merchantName: addFormData.businessName,
-          regNumber: result.merchantCode || addFormData.merchantCode,
-          regDate: new Date().toLocaleDateString(),
-          status: result.status || 'PENDING'
-        },
-        ...prevMerchants
-      ]);
-
       closeModal();
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      await fetchRealMerchants();
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant registered successfully!");
       
     } catch (error: any) {
       console.error("Registration error:", error);
-      alert(error.message || "Error registering merchant.");
+      setFormError(error.message || "Error registering merchant.");
+    } finally {
+      setIsRegistering(false);
     }
   };
 
@@ -155,15 +227,19 @@ export default function MerchantApprovals() {
       if (!response.ok) throw new Error('Failed to update in database');
 
       setMerchants(prevMerchants => 
-        prevMerchants.map(m => m.id === selectedMerchant.id ? { ...m, merchantName: editName, regNumber: editRegNum } : m)
+        prevMerchants.map(m => 
+          m.id === selectedMerchant.id 
+            ? { ...m, merchantName: editName, regNumber: editRegNum }
+            : m
+        )
       );
+
       closeModal();
-      
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant updated successfully!");
     } catch (error) {
       console.error("Update error:", error);
-      alert("Error updating database.");
+      alert("Error updating merchant.");
     }
   };
 
@@ -173,18 +249,23 @@ export default function MerchantApprovals() {
       const token = localStorage.getItem('token');
       const response = await fetch(`http://127.0.0.1:8004/api/v1/admin/merchants/${selectedMerchant.id}/status?status=SUSPENDED`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ reason: suspendReason })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ reason: suspendReason || 'Violation of terms' })
       });
 
       if (!response.ok) throw new Error('Failed to suspend in database');
 
       setMerchants(prevMerchants => 
-        prevMerchants.map(m => m.id === selectedMerchant.id ? { ...m, status: 'SUSPENDED' } : m)
+        prevMerchants.map(m => 
+          m.id === selectedMerchant.id ? { ...m, status: 'SUSPENDED' } : m
+        )
       );
+
       closeModal();
-      
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant suspended successfully!");
     } catch (error) {
       console.error("Suspend error:", error);
@@ -192,11 +273,8 @@ export default function MerchantApprovals() {
     }
   };
 
-  // ----------------------------------------------------------------------
-  // Merchant Action Handlers (Approve, Reject, Reactivate)
-  // ----------------------------------------------------------------------
   const handleApprove = async (id: string) => {
-    if (!window.confirm("Are you sure you want to approve this merchant?")) return;
+    if (!window.confirm(t('merchants.confirmApprove'))) return;
     
     try {
       const token = localStorage.getItem('token');
@@ -208,8 +286,7 @@ export default function MerchantApprovals() {
       if (!response.ok) throw new Error('Failed to approve merchant');
 
       setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'ACTIVE' } : m));
-      
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant approved successfully!");
     } catch (error) {
       console.error("Approve error:", error);
@@ -218,7 +295,7 @@ export default function MerchantApprovals() {
   };
 
   const handleReject = async (id: string) => {
-    const reason = window.prompt("Please enter a reason for rejection:");
+    const reason = window.prompt(t('merchants.promptRejectReason'));
     if (reason === null) return; 
 
     try {
@@ -235,8 +312,7 @@ export default function MerchantApprovals() {
       if (!response.ok) throw new Error('Failed to reject merchant');
 
       setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'REJECTED' } : m));
-      
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant rejected successfully!");
     } catch (error) {
       console.error("Reject error:", error);
@@ -245,7 +321,7 @@ export default function MerchantApprovals() {
   };
 
   const handleReactivate = async (id: string) => {
-    if (!window.confirm("Are you sure you want to reactivate this suspended merchant?")) return;
+    if (!window.confirm(t('merchants.confirmReactivate'))) return;
     
     try {
       const token = localStorage.getItem('token');
@@ -255,18 +331,32 @@ export default function MerchantApprovals() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify({ reason: "Reactivated by Admin" })
+        body: JSON.stringify({ reason: 'Reactivated by Admin' })
       });
 
       if (!response.ok) throw new Error('Failed to reactivate merchant');
 
       setMerchants(prev => prev.map(m => m.id === id ? { ...m, status: 'ACTIVE' } : m));
-      
-      window.dispatchEvent(new Event('refreshNotifications')); // 🔴 Alert မတိုင်မီ Trigger လုပ်မည်
+      window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant reactivated successfully!");
     } catch (error) {
       console.error("Reactivate error:", error);
       alert("Error reactivating merchant.");
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">{t('common.active')}</span>;
+      case 'PENDING':
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">{t('common.pending')}</span>;
+      case 'SUSPENDED':
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">{t('common.suspended')}</span>;
+      case 'REJECTED':
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300">{t('common.rejected')}</span>;
+      default:
+        return <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-300">{status}</span>;
     }
   };
 
@@ -278,102 +368,102 @@ export default function MerchantApprovals() {
   return (
     <div className="space-y-6 relative">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-slate-800">Merchant Approvals</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('merchants.title')}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('merchants.subtitle')}</p>
+        </div>
         
-        {/* Only ADMIN or SUPPORT can see Add Merchant button */}
-        {(userRole === 'ADMIN' || userRole === 'SUPPORT') && (
-          <button onClick={openAddModal} className="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+        {userRole === 'ADMIN' && (
+          <button onClick={openAddModal} className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
-            Add Merchant
+            {t('merchants.addMerchant')}
           </button>
         )}
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <p className="text-sm text-slate-500 mb-2">Search by merchant name or reg number...</p>
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
         <div className="relative w-full">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-slate-400" />
           </div>
-          <input type="text" className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <input 
+            type="text" 
+            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm transition-colors" 
+            placeholder={t('merchants.searchPlaceholder')} 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+          />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+          <thead className="bg-slate-50 dark:bg-slate-900">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Merchant Name</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Registration Number</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Registration Date</th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-              {(userRole === 'ADMIN' || userRole === 'SUPPORT') && (
-                <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
-              )}
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('merchants.colMerchantName')}</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('merchants.colRegNumber')}</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('merchants.colRegDate')}</th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('merchants.colStatus')}</th>
+              <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('merchants.colActions')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
+                <td colSpan={5} className="px-6 py-10 text-center text-slate-500 dark:text-slate-400">
                   <div className="flex flex-col items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-2" />
-                    <p>Loading real data from database...</p>
+                    <p>{t('merchants.loading')}</p>
                   </div>
                 </td>
               </tr>
             ) : filteredMerchants.length > 0 ? (
               filteredMerchants.map((merchant) => (
-                <tr key={merchant.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4"><div className="font-medium text-slate-900">{merchant.merchantName}</div></td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{merchant.regNumber}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{merchant.regDate}</td>
+                <tr key={merchant.id} className="hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
+                  <td className="px-6 py-4"><div className="font-medium text-slate-900 dark:text-white">{merchant.merchantName}</div></td>
+                  <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{merchant.regNumber}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{merchant.regDate}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
-                      merchant.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                      merchant.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
-                      merchant.status === 'SUSPENDED' ? 'bg-red-100 text-red-800' :
-                      'bg-slate-100 text-slate-800'
-                    }`}>
-                      {merchant.status}
-                    </span>
+                    {getStatusBadge(merchant.status)}
                   </td>
-                  <td className="px-6 py-4 text-right space-x-3 flex justify-end items-center">
-                    {/* Edit button is always shown */}
-                    <button onClick={() => handleEditClick(merchant)} className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm p-1.5 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                      <Edit className="h-4 w-4" />
-                    </button>
-
-                    {/* PENDING: Show Approve / Reject */}
-                    {merchant.status === 'PENDING' && (
+                  <td className="px-6 py-4 text-right space-x-2 flex justify-end items-center">
+                    {isAuditor ? (
+                      <span className="text-xs text-slate-400 italic">View Only</span>
+                    ) : (
                       <>
-                        <button onClick={() => handleApprove(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-green-200 bg-green-50 text-green-700 rounded-md hover:bg-green-100 font-medium text-sm transition-colors" title="Approve Merchant">
-                          <Check className="h-4 w-4 mr-1.5" /> Approve
+                        <button onClick={() => openEditModal(merchant)} className="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 p-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title={t('common.edit')}>
+                          <Edit className="h-4 w-4" />
                         </button>
-                        <button onClick={() => handleReject(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 rounded-md hover:bg-red-100 font-medium text-sm transition-colors" title="Reject Merchant">
-                          <X className="h-4 w-4 mr-1.5" /> Reject
-                        </button>
+
+                        {merchant.status === 'PENDING' && (
+                          <>
+                            <button onClick={() => handleApprove(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-md hover:bg-green-100 font-medium text-xs transition-colors" title={t('merchants.approve')}>
+                              <Check className="h-3.5 w-3.5 mr-1" /> {t('merchants.approve')}
+                            </button>
+                            <button onClick={() => handleReject(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-md hover:bg-red-100 font-medium text-xs transition-colors" title={t('merchants.reject')}>
+                              <X className="h-3.5 w-3.5 mr-1" /> {t('merchants.reject')}
+                            </button>
+                          </>
+                        )}
+
+                        {merchant.status === 'ACTIVE' && (
+                          <button onClick={() => openSuspendModal(merchant)} className="inline-flex items-center px-3 py-1.5 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded-md hover:bg-amber-100 font-medium text-xs transition-colors" title={t('merchants.suspend')}>
+                            <Ban className="h-3.5 w-3.5 mr-1" /> {t('merchants.suspend')}
+                          </button>
+                        )}
+
+                        {merchant.status === 'SUSPENDED' && (
+                          <button onClick={() => handleReactivate(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md hover:bg-blue-100 font-medium text-xs transition-colors" title={t('merchants.reactivate')}>
+                            <RefreshCw className="h-3.5 w-3.5 mr-1" /> {t('merchants.reactivate')}
+                          </button>
+                        )}
                       </>
-                    )}
-
-                    {/* ACTIVE: Show Suspend */}
-                    {merchant.status === 'ACTIVE' && (
-                      <button onClick={() => handleSuspendClick(merchant)} className="inline-flex items-center px-3 py-1.5 border border-amber-200 bg-amber-50 text-amber-600 rounded-md hover:bg-amber-100 font-medium text-sm transition-colors" title="Suspend Merchant">
-                        <Ban className="h-4 w-4 mr-1.5" /> Suspend
-                      </button>
-                    )}
-
-                    {/* SUSPENDED: Show Reactivate */}
-                    {merchant.status === 'SUSPENDED' && (
-                      <button onClick={() => handleReactivate(merchant.id)} className="inline-flex items-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 font-medium text-sm transition-colors" title="Reactivate Merchant">
-                        <RefreshCw className="h-4 w-4 mr-1.5" /> Reactivate
-                      </button>
                     )}
                   </td>
                 </tr>
               ))
             ) : (
-              <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No merchants found matching your search.</td></tr>
+              <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">{t('merchants.noMerchants')}</td></tr>
             )}
           </tbody>
         </table>
@@ -382,82 +472,124 @@ export default function MerchantApprovals() {
       {/* ADD NEW MERCHANT MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-800">Add New Merchant</h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition-colors">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-white">{t('merchants.modalAddTitle')}</h2>
+              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full">
                 <X className="h-5 w-5" />
               </button>
             </div>
             
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Business Details */}
+              {formError && (
+                <div className="mb-5 p-3.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm flex items-start gap-2.5">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-800 border-b pb-2">Business Details</h3>
+                  <h3 className="font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2">Business Details</h3>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Business Name</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.businessName')} *</label>
                     <input type="text" placeholder="e.g. Acme Corp" value={addFormData.businessName}
                       onChange={(e) => setAddFormData({...addFormData, businessName: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.merchantCode')} *</label>
                     <input type="text" placeholder="e.g. REG-123456" value={addFormData.merchantCode}
                       onChange={(e) => setAddFormData({...addFormData, merchantCode: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Settlement Bank Account</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.settlementAccount')} *</label>
                     <input type="text" placeholder="e.g. KBZ-0987654321" value={addFormData.settlementAccountNo}
                       onChange={(e) => setAddFormData({...addFormData, settlementAccountNo: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">MCC ID</label>
-                    <input type="number" placeholder="e.g. 1" value={addFormData.mccId}
-                      onChange={(e) => setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      {t('merchants.businessType') || 'MCC Category'} *
+                    </label>
+                    {availableMccs.length > 0 ? (
+                      <select
+                        value={addFormData.mccId}
+                        onChange={(e) => setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 1})}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      >
+                        {availableMccs.map(mcc => (
+                          <option key={mcc.id} value={mcc.id}>
+                            {mcc.mccCode} - {mcc.mccName}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input type="number" placeholder="e.g. 1" value={addFormData.mccId}
+                        onChange={(e) => setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 1})}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    )}
                   </div>
                 </div>
 
-                {/* Contact Information */}
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-slate-800 border-b pb-2">Contact Information</h3>
+                  <h3 className="font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2">Contact Details</h3>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Contact Name</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.contactName')}</label>
                     <input type="text" placeholder="e.g. John Doe" value={addFormData.contactName}
                       onChange={(e) => setAddFormData({...addFormData, contactName: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.email')} *</label>
                     <input type="email" placeholder="e.g. contact@acme.com" value={addFormData.email}
                       onChange={(e) => setAddFormData({...addFormData, email: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.phone')}</label>
                     <input type="text" placeholder="e.g. +95 9 123 4567" value={addFormData.phone}
                       onChange={(e) => setAddFormData({...addFormData, phone: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Default Password</label>
-                    <input type="password" placeholder="Enter password" value={addFormData.rawPassword}
-                      onChange={(e) => setAddFormData({...addFormData, rawPassword: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.password')} *</label>
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="Min. 6 characters" 
+                        value={addFormData.rawPassword}
+                        onChange={(e) => setAddFormData({...addFormData, rawPassword: e.target.value})}
+                        className="w-full px-3 py-2 pr-10 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end space-x-3">
-              <button onClick={() => setIsAddModalOpen(false)} className="px-5 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg hover:bg-slate-50 font-medium transition-colors">
-                Cancel
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 flex justify-end space-x-3">
+              <button 
+                disabled={isRegistering}
+                onClick={closeModal} 
+                className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {t('common.cancel')}
               </button>
-              <button onClick={handleRegisterMerchant} className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm">
-                Register Merchant
+              <button 
+                disabled={isRegistering}
+                onClick={handleRegisterMerchant} 
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {isRegistering && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t('merchants.register')}
               </button>
             </div>
           </div>
@@ -466,25 +598,25 @@ export default function MerchantApprovals() {
 
       {/* EDIT MODAL */}
       {isEditModalOpen && selectedMerchant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-slate-800">Edit Merchant Details</h2>
-              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition-colors"><X className="h-4 w-4" /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 dark:border-slate-700">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('merchants.modalEditTitle')}</h2>
+              <button onClick={closeModal} className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Business Name</label>
-                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.businessName')}</label>
+                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number</label>
-                <input type="text" value={editRegNum} onChange={(e) => setEditRegNum(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.merchantCode')}</label>
+                <input type="text" value={editRegNum} onChange={(e) => setEditRegNum(e.target.value)} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end space-x-3">
-              <button onClick={closeModal} className="px-4 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg hover:bg-slate-50 font-medium text-sm">Cancel</button>
-              <button onClick={handleSaveChanges} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">Save Changes</button>
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 flex justify-end space-x-3">
+              <button onClick={closeModal} className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium">{t('common.cancel')}</button>
+              <button onClick={handleSaveChanges} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">{t('merchants.saveChanges')}</button>
             </div>
           </div>
         </div>
@@ -492,20 +624,20 @@ export default function MerchantApprovals() {
 
       {/* SUSPEND MODAL */}
       {isSuspendModalOpen && selectedMerchant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-3">Suspend Merchant</h2>
-            <p className="text-slate-600 text-sm mb-4 leading-relaxed">
-              You are about to suspend <span className="font-bold text-slate-800">{selectedMerchant.merchantName}</span>. This will immediately disable their API access and payment processing capabilities.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden p-6 border border-slate-200 dark:border-slate-700">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-3">{t('merchants.suspend')}</h2>
+            <p className="text-slate-600 dark:text-slate-300 text-sm mb-4 leading-relaxed">
+              You are about to suspend <span className="font-bold text-slate-800 dark:text-white">{selectedMerchant.merchantName}</span>.
             </p>
             <div className="mb-6">
-              <label className="block text-sm font-medium text-slate-700 mb-2">Reason for Suspension</label>
-              <textarea rows={3} placeholder="e.g. Unusual dispute velocity, KYC expiry" value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm"></textarea>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Reason for Suspension</label>
+              <textarea rows={3} placeholder="e.g. Unusual dispute velocity, KYC expiry" value={suspendReason} onChange={(e) => setSuspendReason(e.target.value)} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-red-500 resize-none outline-none"></textarea>
             </div>
             <div className="flex justify-end space-x-3">
-              <button onClick={closeModal} className="px-4 py-2 border border-slate-300 text-slate-700 bg-white rounded-lg hover:bg-slate-50 font-medium text-sm transition-colors">Cancel</button>
-              <button onClick={handleConfirmSuspend} className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-colors">
-                <Ban className="h-4 w-4 mr-2" /> Confirm Suspension
+              <button onClick={closeModal} className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium">{t('common.cancel')}</button>
+              <button onClick={handleConfirmSuspend} className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors">
+                <Ban className="h-4 w-4 mr-1.5" /> {t('merchants.suspend')}
               </button>
             </div>
           </div>
