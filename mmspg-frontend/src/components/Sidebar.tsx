@@ -2,12 +2,12 @@ import { NavLink } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import merchantLogo from '../assets/merchant-logo.png';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Building2, 
-  Settings, 
-  CreditCard, 
+import {
+  LayoutDashboard,
+  Users,
+  Building2,
+  Settings,
+  CreditCard,
   UserCog,
   ChevronLeft
 } from 'lucide-react';
@@ -26,7 +26,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
   const { t } = useTranslation();
 
-  const [userRole, setUserRole] = useState<string>(() => 
+  const [userRole, setUserRole] = useState<string>(() =>
     (localStorage.getItem('userRole') || 'ADMIN').toUpperCase()
   );
 
@@ -41,25 +41,28 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
     };
   }, []);
 
-  const basePath = userRole === 'SUPPORT' 
-    ? '/support' 
-    : userRole === 'AUDITOR' 
-    ? '/auditor' 
-    : '/admin';
+  const basePath = userRole === 'SUPPORT'
+    ? '/support'
+    : userRole === 'AUDITOR'
+      ? '/auditor'
+      : '/admin';
 
   let sidebarLinks: SidebarLink[] = [];
 
   if (userRole === 'MERCHANT') {
     sidebarLinks = [
       { to: '/merchant/dashboard', icon: LayoutDashboard, label: t('nav.dashboardReports') },
+      { to: '/merchant/reports', icon: LayoutDashboard, label: 'Report' },
+      { to: '/merchant/webhooks', icon: LayoutDashboard, label: 'Webhooks' },
+
     ];
   } else {
     sidebarLinks = [
-      { to: `${basePath}/dashboard`,          icon: LayoutDashboard, label: t('nav.dashboard') },
-      { to: `${basePath}/merchant-approvals`, icon: Users,           label: t('nav.merchantApprovals') },
-      { to: `${basePath}/branches`,           icon: Building2,       label: t('nav.branchManagement') },
-      { to: `${basePath}/mcc-configuration`,  icon: Settings,        label: t('nav.mccManagement') },
-      { to: `${basePath}/terminals`,          icon: CreditCard,      label: t('nav.terminals') },
+      { to: `${basePath}/dashboard`, icon: LayoutDashboard, label: t('nav.dashboard') },
+      { to: `${basePath}/merchant-approvals`, icon: Users, label: t('nav.merchantApprovals') },
+      { to: `${basePath}/branches`, icon: Building2, label: t('nav.branchManagement') },
+      { to: `${basePath}/mcc-configuration`, icon: Settings, label: t('nav.mccManagement') },
+      { to: `${basePath}/terminals`, icon: CreditCard, label: t('nav.terminals') },
     ];
 
     if (userRole === 'ADMIN') {
@@ -70,17 +73,16 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
   }
 
   const sectionTitle =
-    userRole === 'SUPPORT'  ? t('nav.support') :
-    userRole === 'AUDITOR'  ? t('nav.auditor') :
-    userRole === 'MERCHANT' ? t('nav.merchant') :
-    t('nav.administration');
+    userRole === 'SUPPORT' ? t('nav.support') :
+      userRole === 'AUDITOR' ? t('nav.auditor') :
+        userRole === 'MERCHANT' ? t('nav.merchant') :
+          t('nav.administration');
 
   return (
-    <aside className={`${
-      isOpen 
-        ? 'w-64 opacity-100 translate-x-0' 
-        : 'w-0 -translate-x-full opacity-0 pointer-events-none p-0 overflow-hidden border-0'
-    } bg-slate-900 dark:bg-slate-950 text-white min-h-screen flex flex-col transition-all duration-300 ease-in-out shadow-xl z-20 border-r border-slate-800 shrink-0`}>
+    <aside className={`${isOpen
+      ? 'w-64 opacity-100 translate-x-0'
+      : 'w-0 -translate-x-full opacity-0 pointer-events-none p-0 overflow-hidden border-0'
+      } bg-slate-900 dark:bg-slate-950 text-white min-h-screen flex flex-col transition-all duration-300 ease-in-out shadow-xl z-20 border-r border-slate-800 shrink-0`}>
       {/* Brand */}
       <div className="px-4 py-4 border-b border-slate-800 flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -115,10 +117,9 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
               key={link.to}
               to={link.to}
               className={({ isActive }) =>
-                `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${isActive
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`
               }
             >
@@ -135,10 +136,9 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
           <NavLink
             to={`${basePath}/settings`}
             className={({ isActive }) =>
-              `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${isActive
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
               }`
             }
           >
