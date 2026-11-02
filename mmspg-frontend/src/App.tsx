@@ -91,12 +91,14 @@ export default function App() {
               <Route path="profile" element={<StaffProfile />} />
               <Route path="settings" element={<Settings />} />
             </Route>
-        {/* Protected Merchant Routes */}
-        <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
-          <Route element={<Layout />}>
-            <Route path="dashboard" element={<MerchantDashboard />} />
-            <Route path="reports" element={<MerchantReports />} />
-            <Route path="webhooks" element={<MerchantWebhooks />} />
+          </Route>
+          {/* Protected Merchant Routes */}
+          <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
+            <Route element={<Layout />}>
+              <Route path="dashboard" element={<MerchantDashboard />} />
+              <Route path="reports" element={<MerchantReports />} />
+              <Route path="webhooks" element={<MerchantWebhooks />} />
+            </Route>
           </Route>
 
           {/* Protected Merchant Routes */}

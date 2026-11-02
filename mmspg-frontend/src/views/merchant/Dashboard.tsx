@@ -27,14 +27,14 @@ import {
   type RecentTransaction,
 } from '../../features/main-merchant/types'
 
-export default function Dashboard() {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('merchantDashboard.title')}</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('merchantDashboard.subtitle')}</p>
+// export default function Dashboard() {
+//   const { t } = useTranslation();
+//   return (
+//     <div className="space-y-6">
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('merchantDashboard.title')}</h1>
+//           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('merchantDashboard.subtitle')}</p>
 
 
 function formatMoney(value: number) {
@@ -212,11 +212,10 @@ export default function Dashboard() {
               <button
                 key={p}
                 onClick={() => handlePresetChange(p)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  isActive
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${isActive
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 {labels[p]}
               </button>
