@@ -9,7 +9,8 @@ import {
   Settings,
   CreditCard,
   UserCog,
-  ChevronLeft
+  ChevronLeft,
+  ShieldCheck
 } from 'lucide-react';
 
 type SidebarLink = {
@@ -68,6 +69,12 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
     if (userRole === 'ADMIN') {
       sidebarLinks.push(
         { to: `${basePath}/staff-users`, icon: UserCog, label: t('nav.staffUsers') }
+      );
+    }
+
+    if (userRole === 'ADMIN' || userRole === 'AUDITOR') {
+      sidebarLinks.push(
+        { to: `${basePath}/audit-logs`, icon: ShieldCheck, label: t('nav.auditLogs', 'Audit Logs') }
       );
     }
   }

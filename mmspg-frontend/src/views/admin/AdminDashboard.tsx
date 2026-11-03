@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Clock, Activity, Monitor, Users, FileText, CheckCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Clock, Activity, Monitor, Users, FileText, CheckCircle, RefreshCw, AlertCircle, ShieldCheck, ArrowRight } from 'lucide-react';
 import { getAdminDashboardSummary } from '../../services/adminDashboardApi';
+import { fetchRecentAuditLogs, type AuditLogItem } from '../../services/auditLogApi';
 
 interface RecentRequest {
   requestId: string;
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
     : t('dashboard.adminTitle');
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [recentAuditLogs, setRecentAuditLogs] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +44,15 @@ export default function AdminDashboard() {
     setError(null);
 
     try {
-      const summary = await getAdminDashboardSummary();
+      const summaryPromise = getAdminDashboardSummary();
+      const auditLogsPromise = (userRole === 'ADMIN' || userRole === 'AUDITOR')
+        ? fetchRecentAuditLogs(5).catch((err) => {
+            console.warn("Could not load recent audit logs:", err);
+            return [];
+          })
+        : Promise.resolve([]);
+
+      const [summary, auditLogs] = await Promise.all([summaryPromise, auditLogsPromise]);
       const volume = summary.totalVolumeToday != null ? Number(summary.totalVolumeToday) : 0;
       const formattedVolume = `MMK ${volume.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
@@ -61,6 +71,7 @@ export default function AdminDashboard() {
         internalStaff: Number(summary.internalStaff) || 0,
         recentRequests: recentRequests
       });
+      setRecentAuditLogs(auditLogs);
     } catch (err: any) {
       console.error("Error fetching admin dashboard summary:", err);
       setError(err.response?.data?.message || err.message || t('dashboard.loadError'));
@@ -68,7 +79,7 @@ export default function AdminDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t]);
+  }, [t, userRole]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -245,6 +256,83 @@ export default function AdminDashboard() {
           </table>
         </div>
       </div>
+
+      {/* Recent Security & Audit Events (ADMIN & AUDITOR) */}
+      {(userRole === 'ADMIN' || userRole === 'AUDITOR') && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/80">
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="h-5 w-5 text-indigo-500" />
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Recent System Audit Events</h2>
+            </div>
+            <button
+              onClick={() => navigate(`${basePath}/audit-logs`)}
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 inline-flex items-center gap-1 transition-colors"
+            >
+              View Full Audit Trail
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+              <thead className="bg-white dark:bg-slate-800">
+                <tr>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Timestamp</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Module</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Action</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actor</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Description</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+                {recentAuditLogs.length > 0 ? (
+                  recentAuditLogs.map((log) => (
+                    <tr key={log.auditId} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-sm">
+                      <td className="px-6 py-3.5 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 font-mono">
+                        {log.createdAt ? new Date(log.createdAt).toLocaleString() : 'N/A'}
+                      </td>
+                      <td className="px-6 py-3.5 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">
+                        {log.menuName}
+                      </td>
+                      <td className="px-6 py-3.5 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3.5 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                        <span className="font-medium">{log.actorId || 'SYSTEM'}</span>
+                        <span className="ml-1 text-xs text-slate-400">
+                          ({log.roleName === 'UNKNOWN' ? 'SYSTEM' : (log.roleName || 'SYSTEM')})
+                        </span>
+                      </td>
+                      <td className="px-6 py-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          log.status === 'SUCCESS'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                            : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                        }`}>
+                          {log.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3.5 text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate" title={log.description}>
+                        {log.description || '-'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                      No recent audit logs found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
