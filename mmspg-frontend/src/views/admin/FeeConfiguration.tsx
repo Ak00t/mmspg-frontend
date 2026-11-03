@@ -12,7 +12,8 @@ import {
   ShieldAlert, 
   CheckCircle2, 
   TrendingUp, 
-  Layers
+  Layers,
+  AlertCircle
 } from 'lucide-react';
 import {
   getFeeConfigs,
@@ -81,6 +82,7 @@ export default function FeeConfiguration() {
     effectiveTo: ''
   });
   const [addError, setAddError] = useState<string | null>(null);
+  const [addFieldErrors, setAddFieldErrors] = useState<Record<string, string>>({});
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -185,6 +187,7 @@ export default function FeeConfiguration() {
   // Handle Add Fee Config
   const handleOpenAddModal = () => {
     setAddError(null);
+    setAddFieldErrors({});
     setAddForm({
       merchantId: merchants.length > 0 ? merchants[0].id : '',
       feeType: 'PERCENTAGE',
@@ -198,55 +201,66 @@ export default function FeeConfiguration() {
     setIsAddModalOpen(true);
   };
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAddError(null);
+  const validateAddForm = () => {
+    const errors: Record<string, string> = {};
 
     if (!addForm.merchantId) {
-      setAddError('Please select a merchant.');
-      return;
+      errors.merchantId = 'Please select a merchant.';
     }
 
     const minFee = Number(addForm.minimumFee);
     const maxFee = Number(addForm.maximumFee);
-    if (isNaN(minFee) || minFee < 0) {
-      setAddError('Minimum fee must be 0 or greater.');
-      return;
+
+    if (addForm.minimumFee === '' || isNaN(minFee) || minFee < 0) {
+      errors.minimumFee = 'Minimum fee must be 0 or greater.';
     }
-    if (isNaN(maxFee) || maxFee < 0) {
-      setAddError('Maximum fee must be 0 or greater.');
-      return;
+
+    if (addForm.maximumFee === '' || isNaN(maxFee) || maxFee < 0) {
+      errors.maximumFee = 'Maximum fee must be 0 or greater.';
     }
-    if (minFee > maxFee) {
-      setAddError('Minimum fee cannot exceed maximum fee.');
-      return;
+
+    if (!isNaN(minFee) && !isNaN(maxFee) && minFee > maxFee) {
+      errors.minimumFee = 'Minimum fee cannot exceed maximum fee.';
+      errors.maximumFee = 'Maximum fee must be greater than or equal to minimum fee.';
     }
 
     if (addForm.feeType === 'PERCENTAGE' || addForm.feeType === 'MIXED') {
       const rate = Number(addForm.percentageRate);
-      if (isNaN(rate) || rate < 0) {
-        setAddError('Valid percentage rate is required.');
-        return;
+      if (addForm.percentageRate === '' || isNaN(rate) || rate < 0 || rate > 100) {
+        errors.percentageRate = 'Percentage rate must be between 0 and 100%.';
       }
     }
 
     if (addForm.feeType === 'FLAT' || addForm.feeType === 'MIXED') {
       const flat = Number(addForm.flatFee);
-      if (isNaN(flat) || flat < 0) {
-        setAddError('Valid flat fee amount is required.');
-        return;
+      if (addForm.flatFee === '' || isNaN(flat) || flat < 0) {
+        errors.flatFee = 'Flat fee must be 0 or greater.';
       }
     }
 
     if (!addForm.effectiveFrom) {
-      setAddError('Effective from date is required.');
+      errors.effectiveFrom = 'Effective from date is required.';
+    }
+
+    if (addForm.effectiveTo && addForm.effectiveFrom && new Date(addForm.effectiveTo) <= new Date(addForm.effectiveFrom)) {
+      errors.effectiveTo = 'Effective to must be after Effective from date.';
+    }
+
+    setAddFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddError(null);
+
+    if (!validateAddForm()) {
+      setAddError('Please correct the highlighted errors before submitting.');
       return;
     }
 
-    if (addForm.effectiveTo && new Date(addForm.effectiveTo) <= new Date(addForm.effectiveFrom)) {
-      setAddError('Effective to must be after Effective from.');
-      return;
-    }
+    const minFee = Number(addForm.minimumFee);
+    const maxFee = Number(addForm.maximumFee);
 
     const payload: any = {
       merchantId: addForm.merchantId,
@@ -273,11 +287,12 @@ export default function FeeConfiguration() {
       const created = await createFeeConfig(payload);
       setFeeConfigs([created, ...feeConfigs]);
       setIsAddModalOpen(false);
+      setAddFieldErrors({});
       window.dispatchEvent(new Event('refreshNotifications'));
       alert('Fee configuration created successfully!');
     } catch (err: any) {
       console.error('Failed to create fee config:', err);
-      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to save fee configuration.';
+      const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to save fee configuration.';
       setAddError(msg);
     } finally {
       setSubmittingAdd(false);
@@ -506,108 +521,106 @@ export default function FeeConfiguration() {
         </div>
       </div>
 
-      {/* Search & Filters */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        <div className="relative w-full md:max-w-md">
+      {/* Filters and Search Bar */}
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="relative w-full md:w-96">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-slate-400" />
+            <Search className="h-4 w-4 text-slate-400" />
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm transition-colors"
+            className="block w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm transition-colors"
             placeholder={t('fees.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {/* Fee Type Filter */}
           <select
             value={selectedTypeFilter}
             onChange={(e) => setSelectedTypeFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="ALL">{t('fees.filterAllTypes')}</option>
-            <option value="PERCENTAGE">PERCENTAGE (%)</option>
-            <option value="FLAT">FLAT (MMK)</option>
-            <option value="MIXED">MIXED (% + MMK)</option>
+            <option value="ALL">All Fee Types</option>
+            <option value="PERCENTAGE">PERCENTAGE</option>
+            <option value="FLAT">FLAT</option>
+            <option value="MIXED">MIXED</option>
           </select>
 
+          {/* Status Filter */}
           <select
             value={selectedStatusFilter}
             onChange={(e) => setSelectedStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="ALL">{t('fees.filterAllStatus')}</option>
+            <option value="ALL">All Status</option>
             <option value="ACTIVE">ACTIVE</option>
             <option value="INACTIVE">INACTIVE</option>
           </select>
         </div>
       </div>
 
-      {/* Fee Configurations Table */}
+      {/* Main Table */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-12 text-center text-slate-500 dark:text-slate-400">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
-              <p>{t('fees.loading')}</p>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3" />
+              <p className="text-sm">{t('fees.loading')}</p>
             </div>
           ) : filteredConfigs.length === 0 ? (
             <div className="p-12 text-center text-slate-500 dark:text-slate-400">
-              <Percent className="h-10 w-10 mx-auto text-slate-400 mb-2 opacity-50" />
-              <p className="font-medium">{t('fees.noFeesFound')}</p>
+              <Store className="h-10 w-10 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+              <p className="text-base font-semibold">{t('fees.noFees')}</p>
+              <p className="text-xs mt-1 text-slate-400">Try adjusting your search criteria or add a new fee rule.</p>
             </div>
           ) : (
             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
               <thead className="bg-slate-50 dark:bg-slate-900">
                 <tr>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     {t('fees.colMerchant')}
                   </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     {t('fees.colFeeType')}
                   </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {t('fees.colRates')}
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Rate / Amount
                   </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {t('fees.colMinMax')}
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    {t('fees.colCaps')}
                   </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     {t('fees.colEffective')}
                   </th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {t('fees.colStatus')}
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    {t('common.status')}
                   </th>
-                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {t('fees.colActions')}
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    {t('common.actions')}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {filteredConfigs.map((fee) => {
-                  const merchantName = getMerchantName(fee.merchantId);
-                  const merchantCode = getMerchantCode(fee.merchantId);
                   const effectiveState = getEffectiveStatus(fee.effectiveFrom, fee.effectiveTo);
-
                   return (
                     <tr key={fee.feeId} className="hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
                       {/* Merchant Column */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">
-                            <Store className="h-5 w-5" />
+                          <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0 font-bold text-sm">
+                            <Store className="h-4 w-4" />
                           </div>
                           <div>
                             <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                              {merchantName}
+                              {getMerchantName(fee.merchantId)}
                             </div>
-                            {merchantCode && (
-                              <div className="text-xs text-slate-400 font-mono">
-                                {merchantCode}
-                              </div>
-                            )}
+                            <div className="text-xs text-slate-400 font-mono">
+                              {getMerchantCode(fee.merchantId) || fee.merchantId.substring(0, 8)}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -615,11 +628,11 @@ export default function FeeConfiguration() {
                       {/* Fee Type Column */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
                             fee.feeType === 'PERCENTAGE'
-                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
-                              : fee.feeType === 'FLAT'
                               ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : fee.feeType === 'FLAT'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
                               : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                           }`}
                         >
@@ -627,56 +640,42 @@ export default function FeeConfiguration() {
                         </span>
                       </td>
 
-                      {/* Rates Column */}
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-slate-900 dark:text-white">
-                          {fee.feeType === 'PERCENTAGE' && (
-                            <span className="text-purple-600 dark:text-purple-400 font-bold">
-                              {fee.percentageRate}%
-                            </span>
-                          )}
-                          {fee.feeType === 'FLAT' && (
-                            <span className="text-blue-600 dark:text-blue-400 font-bold">
-                              {formatCurrency(fee.flatFee)}
-                            </span>
-                          )}
-                          {fee.feeType === 'MIXED' && (
-                            <div className="space-y-0.5">
-                              <span className="text-purple-600 dark:text-purple-400 font-bold">{fee.percentageRate}%</span>
-                              <span className="text-slate-400 text-xs mx-1">+</span>
-                              <span className="text-blue-600 dark:text-blue-400 font-bold">{formatCurrency(fee.flatFee)}</span>
-                            </div>
-                          )}
-                        </div>
+                      {/* Rate / Amount Column */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-200">
+                        {fee.feeType === 'PERCENTAGE' && (
+                          <div className="font-semibold text-blue-600 dark:text-blue-400">
+                            {fee.percentageRate !== null ? `${fee.percentageRate}%` : '-'}
+                          </div>
+                        )}
+                        {fee.feeType === 'FLAT' && (
+                          <div className="font-semibold text-purple-600 dark:text-purple-400">
+                            {formatCurrency(fee.flatFee)}
+                          </div>
+                        )}
+                        {fee.feeType === 'MIXED' && (
+                          <div className="text-xs font-semibold">
+                            <span className="text-blue-600 dark:text-blue-400">{fee.percentageRate}%</span>
+                            <span className="text-slate-400 mx-1">+</span>
+                            <span className="text-purple-600 dark:text-purple-400">{formatCurrency(fee.flatFee)}</span>
+                          </div>
+                        )}
                       </td>
 
-                      {/* Min / Max Cap Column */}
+                      {/* Caps Column */}
                       <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-                        <div>
-                          <span className="text-slate-400">Min: </span>
-                          <span className="font-semibold">{formatCurrency(fee.minimumFee)}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Max: </span>
-                          <span className="font-semibold">{formatCurrency(fee.maximumFee)}</span>
-                        </div>
+                        <div>Min: <span className="font-semibold text-slate-800 dark:text-white">{formatCurrency(fee.minimumFee)}</span></div>
+                        <div>Max: <span className="font-semibold text-slate-800 dark:text-white">{formatCurrency(fee.maximumFee)}</span></div>
                       </td>
 
                       {/* Effective Period Column */}
-                      <td className="px-6 py-4 whitespace-nowrap text-xs">
-                        <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-slate-400" />
                           <span>{formatDate(fee.effectiveFrom)}</span>
                         </div>
-                        {fee.effectiveTo ? (
-                          <div className="text-slate-400 pl-5 text-[11px]">
-                            to {formatDate(fee.effectiveTo)}
-                          </div>
-                        ) : (
-                          <div className="text-slate-400 pl-5 text-[11px]">
-                            No expiry date
-                          </div>
-                        )}
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          to {fee.effectiveTo ? formatDate(fee.effectiveTo) : 'Indefinite'}
+                        </div>
                         <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-medium ${effectiveState.color}`}>
                           {effectiveState.label}
                         </span>
@@ -740,7 +739,11 @@ export default function FeeConfiguration() {
                 </h3>
               </div>
               <button
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setAddFieldErrors({});
+                  setAddError(null);
+                }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="h-5 w-5" />
@@ -762,9 +765,15 @@ export default function FeeConfiguration() {
                 </label>
                 <select
                   value={addForm.merchantId}
-                  onChange={(e) => setAddForm({ ...addForm, merchantId: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
+                  onChange={(e) => {
+                    setAddForm({ ...addForm, merchantId: e.target.value });
+                    if (addFieldErrors.merchantId) setAddFieldErrors(prev => ({ ...prev, merchantId: '' }));
+                  }}
+                  className={`w-full px-3.5 py-2.5 rounded-lg border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                    addFieldErrors.merchantId 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 >
                   <option value="">-- Choose Merchant --</option>
                   {merchants.map((m) => (
@@ -773,6 +782,12 @@ export default function FeeConfiguration() {
                     </option>
                   ))}
                 </select>
+                {addFieldErrors.merchantId && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {addFieldErrors.merchantId}
+                  </p>
+                )}
               </div>
 
               {/* Fee Type Radio Pills */}
@@ -813,12 +828,24 @@ export default function FeeConfiguration() {
                         max="100"
                         placeholder="e.g. 1.50"
                         value={addForm.percentageRate}
-                        onChange={(e) => setAddForm({ ...addForm, percentageRate: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
+                        onChange={(e) => {
+                          setAddForm({ ...addForm, percentageRate: e.target.value });
+                          if (addFieldErrors.percentageRate) setAddFieldErrors(prev => ({ ...prev, percentageRate: '' }));
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-lg border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                          addFieldErrors.percentageRate 
+                            ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                            : 'border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500'
+                        }`}
                       />
                       <span className="absolute right-3 top-2.5 text-slate-400 font-bold text-sm">%</span>
                     </div>
+                    {addFieldErrors.percentageRate && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                        {addFieldErrors.percentageRate}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -833,10 +860,22 @@ export default function FeeConfiguration() {
                       min="0"
                       placeholder="e.g. 500"
                       value={addForm.flatFee}
-                      onChange={(e) => setAddForm({ ...addForm, flatFee: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
+                      onChange={(e) => {
+                        setAddForm({ ...addForm, flatFee: e.target.value });
+                        if (addFieldErrors.flatFee) setAddFieldErrors(prev => ({ ...prev, flatFee: '' }));
+                      }}
+                      className={`w-full px-3.5 py-2.5 rounded-lg border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                        addFieldErrors.flatFee 
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                          : 'border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500'
+                      }`}
                     />
+                    {addFieldErrors.flatFee && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                        {addFieldErrors.flatFee}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -853,10 +892,22 @@ export default function FeeConfiguration() {
                     min="0"
                     placeholder="0"
                     value={addForm.minimumFee}
-                    onChange={(e) => setAddForm({ ...addForm, minimumFee: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    onChange={(e) => {
+                      setAddForm({ ...addForm, minimumFee: e.target.value });
+                      if (addFieldErrors.minimumFee) setAddFieldErrors(prev => ({ ...prev, minimumFee: '' }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-lg border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                      addFieldErrors.minimumFee 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                        : 'border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500'
+                    }`}
                   />
+                  {addFieldErrors.minimumFee && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {addFieldErrors.minimumFee}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -869,10 +920,22 @@ export default function FeeConfiguration() {
                     min="0"
                     placeholder="e.g. 50000"
                     value={addForm.maximumFee}
-                    onChange={(e) => setAddForm({ ...addForm, maximumFee: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    onChange={(e) => {
+                      setAddForm({ ...addForm, maximumFee: e.target.value });
+                      if (addFieldErrors.maximumFee) setAddFieldErrors(prev => ({ ...prev, maximumFee: '' }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-lg border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                      addFieldErrors.maximumFee 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                        : 'border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500'
+                    }`}
                   />
+                  {addFieldErrors.maximumFee && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {addFieldErrors.maximumFee}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -885,10 +948,22 @@ export default function FeeConfiguration() {
                   <input
                     type="datetime-local"
                     value={addForm.effectiveFrom}
-                    onChange={(e) => setAddForm({ ...addForm, effectiveFrom: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    onChange={(e) => {
+                      setAddForm({ ...addForm, effectiveFrom: e.target.value });
+                      if (addFieldErrors.effectiveFrom) setAddFieldErrors(prev => ({ ...prev, effectiveFrom: '' }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-lg border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                      addFieldErrors.effectiveFrom 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                        : 'border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500'
+                    }`}
                   />
+                  {addFieldErrors.effectiveFrom && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {addFieldErrors.effectiveFrom}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -898,16 +973,33 @@ export default function FeeConfiguration() {
                   <input
                     type="datetime-local"
                     value={addForm.effectiveTo}
-                    onChange={(e) => setAddForm({ ...addForm, effectiveTo: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => {
+                      setAddForm({ ...addForm, effectiveTo: e.target.value });
+                      if (addFieldErrors.effectiveTo) setAddFieldErrors(prev => ({ ...prev, effectiveTo: '' }));
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-lg border bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                      addFieldErrors.effectiveTo 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                        : 'border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500'
+                    }`}
                   />
+                  {addFieldErrors.effectiveTo && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {addFieldErrors.effectiveTo}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(false)}
+                  onClick={() => {
+                    setIsAddModalOpen(false);
+                    setAddFieldErrors({});
+                    setAddError(null);
+                  }}
                   className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
                   {t('common.cancel')}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Tag, Edit, Trash2, X } from 'lucide-react';
+import { Search, Plus, Tag, Edit, Trash2, X, AlertCircle } from 'lucide-react';
 import {
   getMccs,
   createMcc,
@@ -29,6 +29,9 @@ export default function MccConfiguration() {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newMcc, setNewMcc] = useState({ mccCode: '', mccName: '', description: '' });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchMccCodes();
@@ -47,23 +50,65 @@ export default function MccConfiguration() {
     }
   };
 
+  const validateAddMcc = () => {
+    const errors: Record<string, string> = {};
+
+    const code = newMcc.mccCode.trim();
+    if (!code) {
+      errors.mccCode = "MCC Code is required";
+    } else if (!/^\d{4}$/.test(code)) {
+      errors.mccCode = "MCC Code must be exactly 4 numeric digits (e.g. 5411)";
+    }
+
+    const name = newMcc.mccName.trim();
+    if (!name) {
+      errors.mccName = "MCC Category Name is required";
+    } else if (name.length < 2) {
+      errors.mccName = "MCC Category Name must be at least 2 characters";
+    } else if (name.length > 150) {
+      errors.mccName = "MCC Category Name cannot exceed 150 characters";
+    }
+
+    if (newMcc.description && newMcc.description.trim().length > 255) {
+      errors.description = "Description cannot exceed 255 characters";
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleAddSubmit = async () => {
-    if (!newMcc.mccCode || !newMcc.mccName) {
-      alert("MCC Code and Category Name are required.");
+    setFormError('');
+    if (!validateAddMcc()) {
+      setFormError("Please fix the highlighted errors before submitting.");
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      const createdMcc = await createMcc(newMcc);
+      const createdMcc = await createMcc({
+        mccCode: newMcc.mccCode.trim(),
+        mccName: newMcc.mccName.trim(),
+        description: newMcc.description ? newMcc.description.trim() : null
+      });
       setMccCodes([createdMcc, ...mccCodes]);
       setIsAddModalOpen(false);
       setNewMcc({ mccCode: '', mccName: '', description: '' });
+      setFieldErrors({});
+      setFormError('');
 
       window.dispatchEvent(new Event('refreshNotifications'));
       alert('MCC Code added successfully!');
     } catch (error: any) {
       console.error('Error adding MCC:', error);
-      alert(`Failed to add new MCC: ${error.response?.data?.error || error.message || 'Unknown error'}`);
+      const backendError = error.response?.data?.error || error.response?.data?.message || error.message || 'Unknown error';
+      setFormError(backendError);
+
+      if (backendError.toLowerCase().includes("mcc code")) {
+        setFieldErrors(prev => ({ ...prev, mccCode: backendError }));
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -124,7 +169,11 @@ export default function MccConfiguration() {
         </div>
         {userRole === 'ADMIN' && (
           <button 
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              setFieldErrors({});
+              setFormError('');
+              setIsAddModalOpen(true);
+            }}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
             {t('mcc.addMcc')}
@@ -230,6 +279,8 @@ export default function MccConfiguration() {
                 onClick={() => {
                   setIsAddModalOpen(false);
                   setNewMcc({ mccCode: '', mccName: '', description: '' });
+                  setFieldErrors({});
+                  setFormError('');
                 }} 
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -238,26 +289,60 @@ export default function MccConfiguration() {
             </div>
             
             <div className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('mcc.code')} (4 digits)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('mcc.code')} (4 digits) *</label>
                 <input 
                   type="text" 
+                  maxLength={4}
                   value={newMcc.mccCode} 
-                  onChange={(e) => setNewMcc({...newMcc, mccCode: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewMcc({...newMcc, mccCode: e.target.value});
+                    if (fieldErrors.mccCode) setFieldErrors(prev => ({ ...prev, mccCode: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.mccCode 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                   placeholder="e.g. 5814"
                 />
+                {fieldErrors.mccCode && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.mccCode}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('mcc.category')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('mcc.category')} *</label>
                 <input 
                   type="text" 
                   value={newMcc.mccName} 
-                  onChange={(e) => setNewMcc({...newMcc, mccName: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewMcc({...newMcc, mccName: e.target.value});
+                    if (fieldErrors.mccName) setFieldErrors(prev => ({ ...prev, mccName: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.mccName 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                   placeholder="e.g. Fast Food Restaurants"
                 />
+                {fieldErrors.mccName && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.mccName}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -265,10 +350,19 @@ export default function MccConfiguration() {
                 <textarea 
                   rows={2}
                   value={newMcc.description} 
-                  onChange={(e) => setNewMcc({...newMcc, description: e.target.value})}
+                  onChange={(e) => {
+                    setNewMcc({...newMcc, description: e.target.value});
+                    if (fieldErrors.description) setFieldErrors(prev => ({ ...prev, description: '' }));
+                  }}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="Optional details..."
                 />
+                {fieldErrors.description && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.description}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -277,14 +371,17 @@ export default function MccConfiguration() {
                 onClick={() => {
                   setIsAddModalOpen(false);
                   setNewMcc({ mccCode: '', mccName: '', description: '' });
+                  setFieldErrors({});
+                  setFormError('');
                 }} 
                 className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 {t('common.cancel')}
               </button>
               <button 
+                disabled={isSubmitting}
                 onClick={handleAddSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {t('mcc.createMcc')}
               </button>

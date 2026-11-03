@@ -49,6 +49,7 @@ export default function MerchantApprovals() {
   const [showPassword, setShowPassword] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [addFormData, setAddFormData] = useState({
     businessName: '',
@@ -117,6 +118,7 @@ export default function MerchantApprovals() {
 
   const openAddModal = () => {
     setFormError('');
+    setFieldErrors({});
     setShowPassword(false);
     setAddFormData({
       businessName: '',
@@ -137,35 +139,61 @@ export default function MerchantApprovals() {
     setIsAddModalOpen(false);
     setSelectedMerchant(null);
     setFormError('');
+    setFieldErrors({});
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (!addFormData.businessName.trim()) {
+      errors.businessName = "Business Name is required";
+    } else if (addFormData.businessName.trim().length < 2) {
+      errors.businessName = "Business Name must be at least 2 characters";
+    }
+
+    if (!addFormData.merchantCode.trim()) {
+      errors.merchantCode = "Merchant Code is required";
+    } else if (!/^[A-Za-z0-9_-]+$/.test(addFormData.merchantCode.trim())) {
+      errors.merchantCode = "Only letters, numbers, hyphens, and underscores are allowed";
+    }
+
+    if (!addFormData.settlementAccountNo.trim()) {
+      errors.settlementAccountNo = "Settlement Account Number is required";
+    } else if (addFormData.settlementAccountNo.trim().length < 4) {
+      errors.settlementAccountNo = "Settlement Account Number must be at least 4 characters";
+    }
+
+    if (!addFormData.mccId) {
+      errors.mccId = "MCC Category is required";
+    }
+
+    if (!addFormData.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addFormData.email.trim())) {
+      errors.email = "Please enter a valid email address (e.g. name@example.com)";
+    }
+
+    if (addFormData.phone && addFormData.phone.trim()) {
+      if (!/^[+0-9\s-]{6,20}$/.test(addFormData.phone.trim())) {
+        errors.phone = "Invalid phone number format (6-20 digits)";
+      }
+    }
+
+    if (!addFormData.rawPassword) {
+      errors.rawPassword = "Password is required";
+    } else if (addFormData.rawPassword.length < 6) {
+      errors.rawPassword = "Password must be at least 6 characters long";
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleRegisterMerchant = async () => {
     setFormError('');
 
-    // Pre-flight validation
-    if (!addFormData.businessName.trim()) {
-      setFormError("Business Name is required.");
-      return;
-    }
-    if (!addFormData.merchantCode.trim()) {
-      setFormError("Merchant Code is required.");
-      return;
-    }
-    if (!addFormData.settlementAccountNo.trim()) {
-      setFormError("Settlement Account Number is required.");
-      return;
-    }
-    if (!addFormData.email.trim()) {
-      setFormError("Email is required.");
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(addFormData.email.trim())) {
-      setFormError("Please enter a valid email address (e.g. name@example.com).");
-      return;
-    }
-    if (!addFormData.rawPassword || addFormData.rawPassword.length < 6) {
-      setFormError("Password must be at least 6 characters long.");
+    if (!validateForm()) {
+      setFormError("Please fix the errors highlighted below before submitting.");
       return;
     }
 
@@ -189,7 +217,14 @@ export default function MerchantApprovals() {
       
     } catch (error: any) {
       console.error("Registration error:", error);
-      setFormError(error.response?.data?.error || error.response?.data?.message || error.message || "Error registering merchant.");
+      const backendError = error.response?.data?.error || error.response?.data?.message || error.message || "Error registering merchant.";
+      setFormError(backendError);
+
+      if (backendError.toLowerCase().includes("merchant code")) {
+        setFieldErrors(prev => ({ ...prev, merchantCode: backendError }));
+      } else if (backendError.toLowerCase().includes("email")) {
+        setFieldErrors(prev => ({ ...prev, email: backendError }));
+      }
     } finally {
       setIsRegistering(false);
     }
@@ -431,22 +466,76 @@ export default function MerchantApprovals() {
                   <h3 className="font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2">Business Details</h3>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.businessName')} *</label>
-                    <input type="text" placeholder="e.g. Acme Corp" value={addFormData.businessName}
-                      onChange={(e) => setAddFormData({...addFormData, businessName: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Acme Corp" 
+                      value={addFormData.businessName}
+                      onChange={(e) => {
+                        setAddFormData({...addFormData, businessName: e.target.value});
+                        if (fieldErrors.businessName) setFieldErrors(prev => ({ ...prev, businessName: '' }));
+                      }}
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                        fieldErrors.businessName 
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                          : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                      }`} 
+                    />
+                    {fieldErrors.businessName && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {fieldErrors.businessName}
+                      </p>
+                    )}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.merchantCode')} *</label>
-                    <input type="text" placeholder="e.g. REG-123456" value={addFormData.merchantCode}
-                      onChange={(e) => setAddFormData({...addFormData, merchantCode: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. REG-123456" 
+                      value={addFormData.merchantCode}
+                      onChange={(e) => {
+                        setAddFormData({...addFormData, merchantCode: e.target.value});
+                        if (fieldErrors.merchantCode) setFieldErrors(prev => ({ ...prev, merchantCode: '' }));
+                      }}
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                        fieldErrors.merchantCode 
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                          : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                      }`} 
+                    />
+                    {fieldErrors.merchantCode && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {fieldErrors.merchantCode}
+                      </p>
+                    )}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.settlementAccount')} *</label>
-                    <input type="text" placeholder="e.g. KBZ-0987654321" value={addFormData.settlementAccountNo}
-                      onChange={(e) => setAddFormData({...addFormData, settlementAccountNo: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. KBZ-0987654321" 
+                      value={addFormData.settlementAccountNo}
+                      onChange={(e) => {
+                        setAddFormData({...addFormData, settlementAccountNo: e.target.value});
+                        if (fieldErrors.settlementAccountNo) setFieldErrors(prev => ({ ...prev, settlementAccountNo: '' }));
+                      }}
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                        fieldErrors.settlementAccountNo 
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                          : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                      }`} 
+                    />
+                    {fieldErrors.settlementAccountNo && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {fieldErrors.settlementAccountNo}
+                      </p>
+                    )}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                       {t('merchants.businessType') || 'MCC Category'} *
@@ -454,8 +543,15 @@ export default function MerchantApprovals() {
                     {availableMccs.length > 0 ? (
                       <select
                         value={addFormData.mccId}
-                        onChange={(e) => setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 1})}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        onChange={(e) => {
+                          setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 1});
+                          if (fieldErrors.mccId) setFieldErrors(prev => ({ ...prev, mccId: '' }));
+                        }}
+                        className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                          fieldErrors.mccId 
+                            ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                            : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                        }`}
                       >
                         {availableMccs.map(mcc => (
                           <option key={mcc.id} value={mcc.id}>
@@ -464,9 +560,26 @@ export default function MerchantApprovals() {
                         ))}
                       </select>
                     ) : (
-                      <input type="number" placeholder="e.g. 1" value={addFormData.mccId}
-                        onChange={(e) => setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 1})}
-                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                      <input 
+                        type="number" 
+                        placeholder="e.g. 1" 
+                        value={addFormData.mccId}
+                        onChange={(e) => {
+                          setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 1});
+                          if (fieldErrors.mccId) setFieldErrors(prev => ({ ...prev, mccId: '' }));
+                        }}
+                        className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                          fieldErrors.mccId 
+                            ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                            : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                        }`} 
+                      />
+                    )}
+                    {fieldErrors.mccId && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {fieldErrors.mccId}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -475,22 +588,63 @@ export default function MerchantApprovals() {
                   <h3 className="font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2">Contact Details</h3>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.contactName')}</label>
-                    <input type="text" placeholder="e.g. John Doe" value={addFormData.contactName}
+                    <input 
+                      type="text" 
+                      placeholder="e.g. John Doe" 
+                      value={addFormData.contactName}
                       onChange={(e) => setAddFormData({...addFormData, contactName: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                    />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.email')} *</label>
-                    <input type="email" placeholder="e.g. contact@acme.com" value={addFormData.email}
-                      onChange={(e) => setAddFormData({...addFormData, email: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <input 
+                      type="email" 
+                      placeholder="e.g. contact@acme.com" 
+                      value={addFormData.email}
+                      onChange={(e) => {
+                        setAddFormData({...addFormData, email: e.target.value});
+                        if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }));
+                      }}
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                        fieldErrors.email 
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                          : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                      }`} 
+                    />
+                    {fieldErrors.email && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {fieldErrors.email}
+                      </p>
+                    )}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.phone')}</label>
-                    <input type="text" placeholder="e.g. +95 9 123 4567" value={addFormData.phone}
-                      onChange={(e) => setAddFormData({...addFormData, phone: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. +95 9 123 4567" 
+                      value={addFormData.phone}
+                      onChange={(e) => {
+                        setAddFormData({...addFormData, phone: e.target.value});
+                        if (fieldErrors.phone) setFieldErrors(prev => ({ ...prev, phone: '' }));
+                      }}
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                        fieldErrors.phone 
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                          : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                      }`} 
+                    />
+                    {fieldErrors.phone && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {fieldErrors.phone}
+                      </p>
+                    )}
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.password')} *</label>
                     <div className="relative">
@@ -498,8 +652,16 @@ export default function MerchantApprovals() {
                         type={showPassword ? "text" : "password"} 
                         placeholder="Min. 6 characters" 
                         value={addFormData.rawPassword}
-                        onChange={(e) => setAddFormData({...addFormData, rawPassword: e.target.value})}
-                        className="w-full px-3 py-2 pr-10 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                        onChange={(e) => {
+                          setAddFormData({...addFormData, rawPassword: e.target.value});
+                          if (fieldErrors.rawPassword) setFieldErrors(prev => ({ ...prev, rawPassword: '' }));
+                        }}
+                        className={`w-full px-3 py-2 pr-10 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
+                          fieldErrors.rawPassword 
+                            ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                            : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                        }`} 
+                      />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
@@ -508,6 +670,12 @@ export default function MerchantApprovals() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
+                    {fieldErrors.rawPassword && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                        {fieldErrors.rawPassword}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

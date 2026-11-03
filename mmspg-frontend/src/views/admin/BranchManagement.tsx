@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Building2, Edit, Power, X } from 'lucide-react'; 
+import { Search, Plus, Building2, Edit, Power, X, AlertCircle } from 'lucide-react'; 
 import {
   getBranches,
   getMerchants,
@@ -41,6 +41,9 @@ export default function BranchManagement() {
     city: '',
     phone: ''
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchBranches();
@@ -68,23 +71,74 @@ export default function BranchManagement() {
     }
   };
 
+  const validateAddBranch = () => {
+    const errors: Record<string, string> = {};
+
+    if (!newBranch.merchantId) {
+      errors.merchantId = "Please select a merchant";
+    }
+
+    if (!newBranch.branchCode.trim()) {
+      errors.branchCode = "Branch Code is required";
+    } else if (!/^[A-Za-z0-9_-]+$/.test(newBranch.branchCode.trim())) {
+      errors.branchCode = "Branch Code can only contain letters, numbers, hyphens, and underscores";
+    } else if (newBranch.branchCode.trim().length > 50) {
+      errors.branchCode = "Branch Code cannot exceed 50 characters";
+    }
+
+    if (!newBranch.branchName.trim()) {
+      errors.branchName = "Branch Name is required";
+    } else if (newBranch.branchName.trim().length < 2) {
+      errors.branchName = "Branch Name must be at least 2 characters";
+    } else if (newBranch.branchName.trim().length > 150) {
+      errors.branchName = "Branch Name cannot exceed 150 characters";
+    }
+
+    if (newBranch.phone && newBranch.phone.trim()) {
+      if (!/^[+0-9\s-]{6,20}$/.test(newBranch.phone.trim())) {
+        errors.phone = "Invalid phone format (6-20 digits)";
+      }
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleAddSubmit = async () => {
-    if (!newBranch.merchantId || !newBranch.branchCode || !newBranch.branchName) {
-      alert('Please fill all required fields');
+    setFormError('');
+    if (!validateAddBranch()) {
+      setFormError("Please fix the highlighted errors before submitting.");
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      await createBranch(newBranch);
+      await createBranch({
+        ...newBranch,
+        branchCode: newBranch.branchCode.trim(),
+        branchName: newBranch.branchName.trim(),
+        city: newBranch.city.trim(),
+        phone: newBranch.phone.trim(),
+        address: newBranch.address.trim()
+      });
       setIsAddModalOpen(false);
       setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
+      setFieldErrors({});
+      setFormError('');
       fetchBranches(); 
       
       window.dispatchEvent(new Event('refreshNotifications'));
       alert("Branch added successfully!"); 
     } catch (error: any) {
       console.error('Error adding branch:', error);
-      alert(`Failed to add branch: ${error.response?.data?.error || error.message || 'Unknown error'}`);
+      const backendError = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to add branch';
+      setFormError(backendError);
+
+      if (backendError.toLowerCase().includes("branch code")) {
+        setFieldErrors(prev => ({ ...prev, branchCode: backendError }));
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -151,7 +205,11 @@ export default function BranchManagement() {
         </div>
         {!isAuditor && (userRole === 'ADMIN' || userRole === 'SUPPORT') && (
           <button 
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              setFieldErrors({});
+              setFormError('');
+              setIsAddModalOpen(true);
+            }}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
             {t('branches.addBranch')}
@@ -263,18 +321,34 @@ export default function BranchManagement() {
               <button onClick={() => {
                 setIsAddModalOpen(false);
                 setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
+                setFieldErrors({});
+                setFormError('');
               }} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
             
             <div className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.selectMerchant')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.selectMerchant')} *</label>
                 <select 
                   value={newBranch.merchantId}
-                  onChange={(e) => setNewBranch({...newBranch, merchantId: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewBranch({...newBranch, merchantId: e.target.value});
+                    if (fieldErrors.merchantId) setFieldErrors(prev => ({ ...prev, merchantId: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.merchantId 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 >
                   <option value="">{t('branches.selectMerchant')}...</option>
                   {merchants && merchants.length > 0 ? (
@@ -290,28 +364,60 @@ export default function BranchManagement() {
                     <option value="" disabled>No merchants available</option>
                   )}
                 </select>
+                {fieldErrors.merchantId && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.merchantId}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.branchCode')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.branchCode')} *</label>
                 <input 
                   type="text" 
                   value={newBranch.branchCode} 
-                  onChange={(e) => setNewBranch({...newBranch, branchCode: e.target.value})}
+                  onChange={(e) => {
+                    setNewBranch({...newBranch, branchCode: e.target.value});
+                    if (fieldErrors.branchCode) setFieldErrors(prev => ({ ...prev, branchCode: '' }));
+                  }}
                   placeholder="e.g. B-001"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.branchCode 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 />
+                {fieldErrors.branchCode && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.branchCode}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.branchName')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.branchName')} *</label>
                 <input 
                   type="text" 
                   value={newBranch.branchName} 
-                  onChange={(e) => setNewBranch({...newBranch, branchName: e.target.value})}
+                  onChange={(e) => {
+                    setNewBranch({...newBranch, branchName: e.target.value});
+                    if (fieldErrors.branchName) setFieldErrors(prev => ({ ...prev, branchName: '' }));
+                  }}
                   placeholder="e.g. Downtown Outlet"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.branchName 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 />
+                {fieldErrors.branchName && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.branchName}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -332,6 +438,7 @@ export default function BranchManagement() {
                     type="text" 
                     value={newBranch.city} 
                     onChange={(e) => setNewBranch({...newBranch, city: e.target.value})}
+                    placeholder="e.g. Yangon"
                     className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
@@ -340,9 +447,23 @@ export default function BranchManagement() {
                   <input 
                     type="text" 
                     value={newBranch.phone} 
-                    onChange={(e) => setNewBranch({...newBranch, phone: e.target.value})}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={(e) => {
+                      setNewBranch({...newBranch, phone: e.target.value});
+                      if (fieldErrors.phone) setFieldErrors(prev => ({ ...prev, phone: '' }));
+                    }}
+                    placeholder="e.g. +95 9 1234567"
+                    className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                      fieldErrors.phone 
+                        ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                        : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                    }`}
                   />
+                  {fieldErrors.phone && (
+                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                      {fieldErrors.phone}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -352,14 +473,17 @@ export default function BranchManagement() {
                 onClick={() => {
                   setIsAddModalOpen(false);
                   setNewBranch({ merchantId: '', branchCode: '', branchName: '', address: '', city: '', phone: '' });
+                  setFieldErrors({});
+                  setFormError('');
                 }}
                 className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 {t('common.cancel')}
               </button>
               <button 
+                disabled={isSubmitting}
                 onClick={handleAddSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {t('branches.createBranch')}
               </button>
