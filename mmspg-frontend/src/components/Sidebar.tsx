@@ -9,7 +9,8 @@ import {
   Settings,
   CreditCard,
   UserCog,
-  ChevronLeft
+  ChevronLeft,
+  Percent
 } from 'lucide-react';
 
 type SidebarLink = {
@@ -54,7 +55,6 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
       { to: '/merchant/dashboard', icon: LayoutDashboard, label: t('nav.dashboardReports') },
       { to: '/merchant/reports', icon: LayoutDashboard, label: 'Report' },
       { to: '/merchant/webhooks', icon: LayoutDashboard, label: 'Webhooks' },
-
     ];
   } else {
     sidebarLinks = [
@@ -62,6 +62,7 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
       { to: `${basePath}/merchant-approvals`, icon: Users, label: t('nav.merchantApprovals') },
       { to: `${basePath}/branches`, icon: Building2, label: t('nav.branchManagement') },
       { to: `${basePath}/mcc-configuration`, icon: Settings, label: t('nav.mccManagement') },
+      { to: `${basePath}/fee-configuration`, icon: Percent, label: t('nav.feeConfiguration') },
       { to: `${basePath}/terminals`, icon: CreditCard, label: t('nav.terminals') },
     ];
 

@@ -12,6 +12,7 @@ import AdminDashboard from './views/admin/AdminDashboard';
 import MerchantApprovals from './views/admin/MerchantApprovals';
 import BranchManagement from './views/admin/BranchManagement';
 import MccManagement from './views/admin/MccManagement';
+import FeeConfiguration from './views/admin/FeeConfiguration';
 import AdminTerminals from './views/admin/AdminTerminals';
 import StaffUsers from './views/admin/StaffUsers';
 import StaffProfile from './views/admin/StaffProfile';
@@ -58,6 +59,7 @@ export default function App() {
               <Route path="merchant-approvals" element={<MerchantApprovals />} />
               <Route path="branches" element={<BranchManagement />} />
               <Route path="mcc-configuration" element={<MccManagement />} />
+              <Route path="fee-configuration" element={<FeeConfiguration />} />
               <Route path="terminals" element={<AdminTerminals />} />
               <Route path="staff-users" element={<StaffUsers />} />
               <Route path="profile" element={<StaffProfile />} />
@@ -73,6 +75,7 @@ export default function App() {
               <Route path="merchant-approvals" element={<MerchantApprovals />} />
               <Route path="branches" element={<BranchManagement />} />
               <Route path="mcc-configuration" element={<MccManagement />} />
+              <Route path="fee-configuration" element={<FeeConfiguration />} />
               <Route path="terminals" element={<AdminTerminals />} />
               <Route path="profile" element={<StaffProfile />} />
               <Route path="settings" element={<Settings />} />
@@ -87,25 +90,19 @@ export default function App() {
               <Route path="merchant-approvals" element={<MerchantApprovals />} />
               <Route path="branches" element={<BranchManagement />} />
               <Route path="mcc-configuration" element={<MccManagement />} />
+              <Route path="fee-configuration" element={<FeeConfiguration />} />
               <Route path="terminals" element={<AdminTerminals />} />
               <Route path="profile" element={<StaffProfile />} />
               <Route path="settings" element={<Settings />} />
-            </Route>
-          </Route>
-          {/* Protected Merchant Routes */}
-          <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
-            <Route element={<Layout />}>
-              <Route path="dashboard" element={<MerchantDashboard />} />
-              <Route path="reports" element={<MerchantReports />} />
-              <Route path="webhooks" element={<MerchantWebhooks />} />
             </Route>
           </Route>
 
           {/* Protected Merchant Routes */}
           <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
             <Route element={<Layout />}>
-              <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<MerchantDashboard />} />
+              <Route path="reports" element={<MerchantReports />} />
+              <Route path="webhooks" element={<MerchantWebhooks />} />
             </Route>
           </Route>
 
