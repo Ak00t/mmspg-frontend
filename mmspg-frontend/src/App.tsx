@@ -92,20 +92,16 @@ export default function App() {
               <Route path="settings" element={<Settings />} />
             </Route>
           </Route>
-          {/* Protected Merchant Routes */}
-          <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
-            <Route element={<Layout />}>
-              <Route path="dashboard" element={<MerchantDashboard />} />
-              <Route path="reports" element={<MerchantReports />} />
-              <Route path="webhooks" element={<MerchantWebhooks />} />
-            </Route>
-          </Route>
 
           {/* Protected Merchant Routes */}
           <Route path="/merchant" element={<ProtectedRoute allowedRoles={['MERCHANT']} />}>
             <Route element={<Layout />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<MerchantDashboard />} />
+              <Route path="reports" element={<MerchantReports />} />
+              <Route path="webhooks" element={<MerchantWebhooks />} />
+              <Route path="profile" element={<StaffProfile />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
           </Route>
 

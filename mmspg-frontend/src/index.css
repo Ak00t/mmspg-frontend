@@ -94,3 +94,33 @@ html.dark thead {
 html.dark tbody tr:hover {
   background-color: #334155 !important;
 }
+
+/* ─── Logo Float & Motion Animation ─── */
+@keyframes merchantLogoFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    filter: drop-shadow(0 4px 6px rgba(124, 58, 237, 0.3));
+  }
+  50% {
+    transform: translateY(-3px) scale(1.03);
+    filter: drop-shadow(0 8px 14px rgba(147, 51, 234, 0.5));
+  }
+}
+
+.animate-logo-float {
+  animation: merchantLogoFloat 3s ease-in-out infinite;
+}
+
+@keyframes logoPulseGlow {
+  0%, 100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+.animate-logo-pulse {
+  animation: logoPulseGlow 2.5s ease-in-out infinite;
+}

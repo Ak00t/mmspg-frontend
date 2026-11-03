@@ -109,9 +109,14 @@ class ApiClient {
       fullUrl = urlObj.toString();
     }
 
+    const requestHeaders = { ...reqConfig.headers };
+    if (data instanceof FormData) {
+      delete requestHeaders['Content-Type'];
+      delete requestHeaders['content-type'];
+    }
     const fetchOptions: RequestInit = {
       method,
-      headers: reqConfig.headers,
+      headers: requestHeaders,
     };
 
     if (data !== undefined && method !== 'GET' && method !== 'HEAD') {

@@ -59,7 +59,10 @@
     "support": "Support",
     "auditor": "Auditor",
     "merchant": "Merchant",
-    "version": "v1.0.0"
+    "version": "v1.0.0",
+    "reports": "Reports",
+    "report": "Reports",
+    "webhooks": "Webhooks"
   },
   "header": {
     "adminPortal": "Admin Portal",
@@ -277,11 +280,19 @@
     "updatePassword": "Update Password",
     "saveChanges": "Save Changes",
     "profileUpdated": "Profile updated successfully!",
-    "passwordUpdated": "Password updated successfully!"
+    "passwordUpdated": "Password updated successfully!",
+    "merchantTitle": "Merchant Profile",
+    "merchantSubtitle": "View and manage your merchant business profile and account credentials",
+    "businessName": "Business Name",
+    "merchantCode": "Merchant Code",
+    "regNumber": "Business Registration No",
+    "settlementAccount": "Settlement Account No",
+    "contactPerson": "Contact Person",
+    "mccCode": "MCC Code"
   },
   "merchantDashboard": {
-    "title": "Merchant Portal Dashboard",
-    "subtitle": "Welcome to your payment gateway overview",
+    "title": "Merchant Portal",
+    "subtitle": "Overview of your transactions and business performance",
     "todaySales": "Today's Sales",
     "transactions": "Transactions",
     "pendingSettlement": "Pending Settlement",
@@ -291,6 +302,12 @@
     "colAmount": "Amount",
     "colType": "Payment Type",
     "colDate": "Date & Time",
-    "colStatus": "Status"
+    "colStatus": "Status",
+    "downloadReports": "Download Reports"
+  },
+  "merchantReports": {
+    "title": "Merchant Reports Export",
+    "subtitle": "Generate and download official Sales Ledger transactions and Settlement payout records in PDF, Excel (.xlsx), or CSV.",
+    "downloadReports": "Download Reports"
   }
 }
