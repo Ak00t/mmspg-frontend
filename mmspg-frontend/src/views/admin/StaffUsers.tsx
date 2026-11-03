@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Edit, Trash2, Power, Shield, X } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, Power, Shield, X, AlertCircle } from 'lucide-react';
 import {
   getStaffUsers,
   createStaffUser,
@@ -42,6 +42,8 @@ export default function StaffUsers() {
   const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string>('');
   
   const [newUser, setNewUser] = useState({
     name: '',
@@ -71,24 +73,83 @@ export default function StaffUsers() {
     fetchUsers();
   }, []);
 
+  const validateAddStaff = () => {
+    const errors: Record<string, string> = {};
+
+    if (!newUser.name.trim()) {
+      errors.name = 'Full name is required';
+    } else if (newUser.name.trim().length < 2) {
+      errors.name = 'Full name must be at least 2 characters';
+    } else if (newUser.name.trim().length > 100) {
+      errors.name = 'Full name must not exceed 100 characters';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!newUser.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!emailRegex.test(newUser.email.trim())) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!newUser.password) {
+      errors.password = 'Password is required';
+    } else if (newUser.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters long';
+    }
+
+    if (!newUser.role) {
+      errors.role = 'Role is required';
+    } else if (!['SUPPORT', 'AUDITOR', 'ADMIN'].includes(newUser.role)) {
+      errors.role = 'Invalid role selected';
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleAddSubmit = async () => {
-    if (!newUser.name || !newUser.email || !newUser.password) {
-      alert("Please fill in all required fields, including the password.");
+    setFormError('');
+    if (!validateAddStaff()) {
+      setFormError('Please resolve all validation errors before proceeding.');
       return;
     }
 
     try {
-      await createStaffUser(newUser);
+      await createStaffUser({
+        name: newUser.name.trim(),
+        email: newUser.email.trim(),
+        role: newUser.role,
+        password: newUser.password
+      });
       setIsAddModalOpen(false);
       setNewUser({ name: '', email: '', role: 'SUPPORT', password: '' });
+      setFieldErrors({});
+      setFormError('');
       fetchUsers(); 
 
       window.dispatchEvent(new Event('refreshNotifications'));
       alert("Staff user added successfully!");
     } catch (error: any) {
       console.error('Error creating user:', error);
-      alert(`Failed to create user: ${error.response?.data?.error || error.message || 'Unknown error'}`);
+      const errMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Unknown error';
+      if (errMsg.toLowerCase().includes('email') || errMsg.toLowerCase().includes('already exists')) {
+        setFieldErrors(prev => ({ ...prev, email: errMsg }));
+      }
+      setFormError(`Failed to create user: ${errMsg}`);
     }
+  };
+
+  const openAddModal = () => {
+    setNewUser({ name: '', email: '', role: 'SUPPORT', password: '' });
+    setFieldErrors({});
+    setFormError('');
+    setIsAddModalOpen(true);
+  };
+
+  const closeAddModal = () => {
+    setIsAddModalOpen(false);
+    setFieldErrors({});
+    setFormError('');
   };
 
   const openEditModal = (user: StaffUser) => {
@@ -99,10 +160,15 @@ export default function StaffUsers() {
   const handleEditSubmit = async () => {
     if (!editingUser) return;
 
+    if (!editingUser.name.trim()) {
+      alert("Full name is required.");
+      return;
+    }
+
     try {
       await updateStaffUser(editingUser.id, {
-        fullName: editingUser.name, 
-        email: editingUser.email,
+        fullName: editingUser.name.trim(), 
+        email: editingUser.email.trim(),
         role: editingUser.role
       });
 
@@ -162,7 +228,7 @@ export default function StaffUsers() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('staff.subtitle')}</p>
         </div>
         <button 
-          onClick={() => setIsAddModalOpen(true)}
+          onClick={openAddModal}
           className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -274,62 +340,129 @@ export default function StaffUsers() {
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('staff.modalAddTitle')}</h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={closeAddModal} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {formError && (
+              <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
             
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('staff.fullName')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {t('staff.fullName')} <span className="text-red-500">*</span>
+                </label>
                 <input 
                   type="text" 
                   value={newUser.name}
-                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewUser({...newUser, name: e.target.value});
+                    if (fieldErrors.name) setFieldErrors(prev => ({ ...prev, name: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 outline-none ${
+                    fieldErrors.name 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-blue-500'
+                  }`}
                   placeholder="e.g. John Doe"
                 />
+                {fieldErrors.name && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.name}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('staff.email')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {t('staff.email')} <span className="text-red-500">*</span>
+                </label>
                 <input 
                   type="email" 
                   value={newUser.email}
-                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewUser({...newUser, email: e.target.value});
+                    if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 outline-none ${
+                    fieldErrors.email 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-blue-500'
+                  }`}
                   placeholder="e.g. john@gateway.com"
                 />
+                {fieldErrors.email && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.email}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('staff.password')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {t('staff.password')} <span className="text-red-500">*</span>
+                </label>
                 <input 
                   type="password" 
                   value={newUser.password}
-                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Enter initial password"
+                  onChange={(e) => {
+                    setNewUser({...newUser, password: e.target.value});
+                    if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 outline-none ${
+                    fieldErrors.password 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-blue-500'
+                  }`}
+                  placeholder="At least 6 characters"
                 />
+                {fieldErrors.password && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.password}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('staff.role')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {t('staff.role')} <span className="text-red-500">*</span>
+                </label>
                 <select 
                   value={newUser.role}
-                  onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewUser({...newUser, role: e.target.value});
+                    if (fieldErrors.role) setFieldErrors(prev => ({ ...prev, role: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 outline-none ${
+                    fieldErrors.role 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-blue-500'
+                  }`}
                 >
                   <option value="SUPPORT">SUPPORT</option>
                   <option value="AUDITOR">AUDITOR</option>
                   <option value="ADMIN">ADMIN</option>
                 </select>
+                {fieldErrors.role && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.role}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-end space-x-3">
               <button 
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={closeAddModal}
                 className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 {t('common.cancel')}

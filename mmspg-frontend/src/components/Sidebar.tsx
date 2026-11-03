@@ -13,6 +13,7 @@ import {
   FileText,
   Webhook,
   LogOut
+  Percent
 } from 'lucide-react';
 
 type SidebarLink = {
@@ -66,6 +67,7 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
       { to: `${basePath}/merchant-approvals`, icon: Users, label: t('nav.merchantApprovals') },
       { to: `${basePath}/branches`, icon: Building2, label: t('nav.branchManagement') },
       { to: `${basePath}/mcc-configuration`, icon: Settings, label: t('nav.mccManagement') },
+      { to: `${basePath}/fee-configuration`, icon: Percent, label: t('nav.feeConfiguration') },
       { to: `${basePath}/terminals`, icon: CreditCard, label: t('nav.terminals') },
     ];
 
