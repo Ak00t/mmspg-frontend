@@ -1,9 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  User,
-  LogOut,
-  ChevronDown,
   Bell,
   BellOff,
   Search,
@@ -21,6 +18,7 @@ import {
   markNotificationAsRead,
   getStaffProfile
 } from '../services/adminManagementApi';
+import { getMerchantProfile } from '../features/main-merchant/api/merchantDashboardApi';
 import { api } from '../services/api';
 
 export interface NotificationItem {
@@ -33,17 +31,17 @@ export interface NotificationItem {
   status?: string;
 }
 
-interface HeaderProps {
-  onToggleSidebar?: () => void;
+export interface HeaderProps {
   isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
-export default function Header({ onToggleSidebar, isSidebarOpen = true }: HeaderProps) {
+export default function Header({ isSidebarOpen = true, onToggleSidebar }: HeaderProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
     const stored = localStorage.getItem('notificationsEnabled');
@@ -54,10 +52,9 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   const notificationRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
 
-  const [userName, setUserName] = useState<string>(() => localStorage.getItem('userName') || 'Admin User');
-  const [userRole, setUserRole] = useState<string>(() => localStorage.getItem('userRole') || 'ADMIN');
+  const [userName, setUserName] = useState<string>(() => localStorage.getItem('userName') || 'Portal User');
+  const [userRole, setUserRole] = useState<string>(() => (localStorage.getItem('userRole') || 'ADMIN').toUpperCase());
   const [avatar, setAvatar] = useState<string | null>(
     () => localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar')
   );
@@ -67,6 +64,10 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
     const sync = () => {
       const stored = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
       setAvatar(stored);
+      const storedRole = (localStorage.getItem('userRole') || 'ADMIN').toUpperCase();
+      setUserRole(storedRole);
+      const storedName = localStorage.getItem('userName');
+      if (storedName) setUserName(storedName);
     };
     window.addEventListener('profileUpdated', sync);
     window.addEventListener('avatarUpdated', sync);
@@ -90,31 +91,25 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
         ? data
         : (data.content || data.data || data.notifications || []);
 
-      // 1. Individually dismissed items
       const dismissed = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]');
       const dismissedSet = new Set(dismissed.map(String));
 
-      // 2. Individual Category Settings toggles from localStorage
       const notifMerchant = localStorage.getItem('notif_merchant') !== 'false';
       const notifBranch   = localStorage.getItem('notif_branch') !== 'false';
       const notifSecurity = localStorage.getItem('notif_security') !== 'false';
 
       const filtered = rawItems.filter(item => {
-        // If closed via X button
         if (dismissedSet.has(String(item.id))) return false;
 
         const itemType = (item.type || '').toUpperCase();
         const itemText = ((item.title || '') + ' ' + (item.message || '')).toLowerCase();
 
-        // Merchant alerts category toggle
         if (!notifMerchant && (itemType === 'MERCHANT' || itemText.includes('merchant'))) {
           return false;
         }
-        // Branch & Terminal alerts category toggle
         if (!notifBranch && (itemType === 'BRANCH' || itemType === 'TERMINAL' || itemText.includes('branch') || itemText.includes('terminal'))) {
           return false;
         }
-        // System & Security alerts category toggle
         if (!notifSecurity && (itemType === 'SECURITY' || itemText.includes('security') || itemText.includes('password') || itemText.includes('login'))) {
           return false;
         }
@@ -178,7 +173,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
     return () => clearInterval(poll);
   }, [notificationsEnabled]);
 
-  // ── Sync from Settings (same-tab custom event + cross-tab storage) ─────
+  // ── Sync from Settings ────────────────────────────────────────────────
   useEffect(() => {
     const sync = () => {
       const stored = localStorage.getItem('notificationsEnabled');
@@ -202,10 +197,9 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
   // ── Click outside to close dropdowns ──────────────────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (notificationRef.current && !notificationRef.current.contains(e.target as Node))
+      if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
         setIsNotificationOpen(false);
-      if (profileRef.current && !profileRef.current.contains(e.target as Node))
-        setIsProfileOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -234,28 +228,56 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
   };
 
   const fetchUserProfile = async () => {
+    const role = (localStorage.getItem('userRole') || userRole || 'ADMIN').toUpperCase();
     try {
-      const data = await getStaffProfile();
-      if (data) {
-        if (data?.fullName) { localStorage.setItem('userName', data.fullName); setUserName(data.fullName); }
-        if (data?.role) { localStorage.setItem('userRole', data.role); setUserRole(data.role); }
-        const local = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
-        if (data?.profileImageUrl?.trim()) {
-          const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
-          const url = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
-            ? data.profileImageUrl
-            : `${apiBase}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
-          if (local?.startsWith('data:')) {
+      if (role === 'MERCHANT') {
+        const data = await getMerchantProfile();
+        if (data) {
+          const name = data.businessName || data.contactName || 'Merchant Portal';
+          localStorage.setItem('userName', name);
+          setUserName(name);
+          setUserRole('MERCHANT');
+          const local = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+          if (data.profileImageUrl && typeof data.profileImageUrl === 'string' && data.profileImageUrl.trim()) {
+            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
+            const url = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
+              ? data.profileImageUrl
+              : `${apiBase}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+            if (local?.startsWith('data:')) {
+              setAvatar(local);
+            } else {
+              localStorage.setItem('adminProfileImage', url);
+              localStorage.setItem('userAvatar', url);
+              setAvatar(url);
+              convertUrlToBase64AndSave(url);
+            }
+          } else if (local) {
             setAvatar(local);
-          } else {
-            localStorage.setItem('adminProfileImage', url);
-            localStorage.setItem('userAvatar', url);
-            setAvatar(url);
-            convertUrlToBase64AndSave(url);
           }
-        } else if (local) {
-          setAvatar(local);
-          if (!local.startsWith('data:') && local.startsWith('http')) convertUrlToBase64AndSave(local);
+        }
+      } else {
+        const data = await getStaffProfile();
+        if (data) {
+          if (data?.fullName) { localStorage.setItem('userName', data.fullName); setUserName(data.fullName); }
+          if (data?.role) { localStorage.setItem('userRole', data.role); setUserRole(data.role); }
+          const local = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
+          if (data?.profileImageUrl?.trim()) {
+            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
+            const url = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
+              ? data.profileImageUrl
+              : `${apiBase}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+            if (local?.startsWith('data:')) {
+              setAvatar(local);
+            } else {
+              localStorage.setItem('adminProfileImage', url);
+              localStorage.setItem('userAvatar', url);
+              setAvatar(url);
+              convertUrlToBase64AndSave(url);
+            }
+          } else if (local) {
+            setAvatar(local);
+            if (!local.startsWith('data:') && local.startsWith('http')) convertUrlToBase64AndSave(local);
+          }
         }
       }
     } catch (err) {
@@ -266,32 +288,9 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
   };
 
   useEffect(() => {
-    const syncProfile = () => {
-      const a = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
-      if (a) setAvatar(a);
-      const n = localStorage.getItem('userName'); if (n) setUserName(n);
-      const r = localStorage.getItem('userRole'); if (r) setUserRole(r);
-      fetchUserProfile();
-    };
-    const syncNotif = () => {
-      if (localStorage.getItem('notificationsEnabled') !== 'false') {
-        fetchNotifications();
-      }
-    };
-    window.addEventListener('profileUpdated', syncProfile);
-    window.addEventListener('avatarUpdated', syncProfile);
-    window.addEventListener('refreshNotifications', syncNotif);
     fetchUserProfile();
-    return () => {
-      window.removeEventListener('profileUpdated', syncProfile);
-      window.removeEventListener('avatarUpdated', syncProfile);
-      window.removeEventListener('refreshNotifications', syncNotif);
-    };
   }, []);
 
-  // ----------------------------------------------------------------------
-  // Notification Action Handlers
-  // ----------------------------------------------------------------------
   const checkIsRead = (item: NotificationItem): boolean => {
     if (typeof item.isRead === 'boolean') return item.isRead;
     if (typeof item.read === 'boolean') return item.read;
@@ -301,14 +300,11 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
 
   const handleMarkAsRead = async (id: string | number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-
-    // Optimistic UI update
     setNotifications(prev =>
       prev.map(n =>
         n.id === id ? { ...n, isRead: true, read: true, status: 'READ' } : n
       )
     );
-
     try {
       await markNotificationAsRead(id);
     } catch (err) {
@@ -320,7 +316,6 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
     const unreadItems = notifications.filter(n => !checkIsRead(n));
     if (unreadItems.length === 0) return;
 
-    // Optimistically mark all as read locally
     setNotifications(prev =>
       prev.map(n => ({ ...n, isRead: true, read: true, status: 'READ' }))
     );
@@ -330,12 +325,6 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err);
     }
-  };
-
-  const handleLogout = () => {
-    ['token', 'mmspg_token', 'userId', 'merchantId', 'mmspg_merchant_id', 'userName', 'userRole', 'userAvatar', 'adminProfileImage']
-      .forEach(k => localStorage.removeItem(k));
-    navigate('/login');
   };
 
   const unreadCount = notifications.filter(n => !checkIsRead(n)).length;
@@ -360,22 +349,32 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
         userRole === 'AUDITOR' ? t('header.auditorPortal') :
           t('header.adminPortal');
 
+  const handleNavigateToProfile = () => {
+    const currentRole = (userRole || localStorage.getItem('userRole') || 'ADMIN').toUpperCase();
+    const targetPath = currentRole === 'MERCHANT' ? '/merchant/profile'
+      : currentRole === 'SUPPORT' ? '/support/profile'
+      : currentRole === 'AUDITOR' ? '/auditor/profile'
+      : '/admin/profile';
+    navigate(targetPath);
+  };
+
   return (
-    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 h-16 flex items-center justify-between px-6 shadow-sm z-10 transition-colors duration-200">
-      {/* Left: Sidebar Toggle + Title + Search */}
+    <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex items-center justify-between px-6 shadow-xs z-10 transition-colors duration-200">
+      {/* Left: Sidebar Toggle Button + Portal Title + Search */}
       <div className="flex items-center flex-1">
         {onToggleSidebar && (
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="mr-3 p-2 rounded-lg text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors focus:outline-none"
-            title={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            className="mr-3.5 p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all focus:outline-none flex items-center justify-center cursor-pointer border border-slate-200 dark:border-slate-700 shadow-xs active:scale-95"
+            title={isSidebarOpen ? "Collapse Sidebar" : "Open Sidebar"}
             aria-label="Toggle Sidebar"
           >
             <Menu className="h-5 w-5" />
           </button>
         )}
-        <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 hidden md:block">
+
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 hidden md:block tracking-tight">
           {portalTitle}
         </h2>
         <div className="ml-8 relative hidden lg:block max-w-md w-full">
@@ -384,15 +383,14 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm transition-colors"
+            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm transition-colors"
             placeholder={t('header.searchPlaceholder')}
           />
         </div>
       </div>
 
-      {/* Right: Bell + Divider + Avatar */}
+      {/* Right: Bell + Divider + Single Profile Click */}
       <div className="flex items-center space-x-4">
-
         {/* ─── Notification Bell ─── */}
         <div className="relative" ref={notificationRef}>
           <button
@@ -400,10 +398,9 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
             onClick={() => {
               if (!notificationsEnabled) return;
               setIsNotificationOpen(v => !v);
-              setIsProfileOpen(false);
             }}
             className={`p-2 rounded-full transition-colors relative focus:outline-none ${notificationsEnabled
-                ? 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700'
+                ? 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
                 : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
               }`}
             title={notificationsEnabled ? t('notifications.title') : t('notifications.disabled')}
@@ -417,7 +414,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
           </button>
 
           {isNotificationOpen && notificationsEnabled && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
               {/* Dropdown header */}
               <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/80">
                 <div className="flex items-center gap-2">
@@ -430,13 +427,13 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
                 </div>
                 <div className="flex items-center gap-3">
                   {unreadCount > 0 && (
-                    <button onClick={handleMarkAllAsRead} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 font-medium flex items-center gap-1">
+                    <button onClick={handleMarkAllAsRead} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 font-medium flex items-center gap-1 cursor-pointer">
                       <CheckCheck className="h-3.5 w-3.5" />
                       {t('notifications.markAllRead')}
                     </button>
                   )}
                   {notifications.length > 0 && (
-                    <button onClick={handleClearAllNotifications} className="text-xs text-slate-400 hover:text-rose-600 font-medium flex items-center gap-1" title="Clear all">
+                    <button onClick={handleClearAllNotifications} className="text-xs text-slate-400 hover:text-rose-600 font-medium flex items-center gap-1 cursor-pointer" title="Clear all">
                       <Trash2 className="h-3.5 w-3.5" />
                       {t('common.clear') || 'Clear'}
                     </button>
@@ -510,67 +507,107 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
           )}
         </div>
 
-        <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2" />
+        <div className="h-6 w-px bg-slate-200 dark:border-slate-800 mx-1" />
 
-        {/* ─── Profile Dropdown ─── */}
-        <div className="relative" ref={profileRef}>
+        {/* ─── Profile Chip: Direct click opens Profile page, Avatar click opens full photo ─── */}
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => { setIsProfileOpen(v => !v); setIsNotificationOpen(false); }}
-            className="flex items-center space-x-3 focus:outline-none rounded-lg p-1 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            type="button"
+            onClick={handleNavigateToProfile}
+            className="flex items-center space-x-3 focus:outline-none rounded-xl p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+            title={t('nav.profile')}
           >
-            <div className="h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800 overflow-hidden">
+            <div
+              onClick={(e) => {
+                if (avatar) {
+                  e.stopPropagation();
+                  setIsImageModalOpen(true);
+                }
+              }}
+              className="h-9 w-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800 overflow-hidden shrink-0 group-hover:ring-2 group-hover:ring-blue-400 transition"
+              title="Click photo to enlarge"
+            >
               {avatar ? (
-                <img src={avatar} alt="Profile" className="h-full w-full rounded-full object-cover"
-                  onError={() => { if (avatar?.startsWith('http')) convertUrlToBase64AndSave(avatar); setAvatar(null); }} />
+                <img
+                  src={avatar}
+                  alt={userName}
+                  className="h-full w-full rounded-full object-cover"
+                  onError={() => { if (avatar?.startsWith('http')) convertUrlToBase64AndSave(avatar); setAvatar(null); }}
+                />
               ) : (
                 <span className="font-bold text-sm">{userName.charAt(0).toUpperCase()}</span>
               )}
             </div>
-            <div className="hidden md:flex items-center text-left">
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-none mb-1">{userName}</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 leading-none">{userRole}</span>
-              </div>
-              <ChevronDown className="ml-2 h-4 w-4 text-slate-400" />
+            <div className="hidden md:flex flex-col text-left">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                {userName}
+              </span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-none mt-0.5">
+                {userRole}
+              </span>
             </div>
-            
           </button>
-
-          {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg py-1 border border-slate-200 dark:border-slate-700 z-50">
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 md:hidden">
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{userName}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{t('profile.account', { role: userRole })}</p>
-              </div>
-              <button
-                onMouseDown={() => {
-                  const role = (userRole || localStorage.getItem('userRole') || 'ADMIN').toUpperCase();
-                  const base = role === 'SUPPORT' ? '/support' : role === 'AUDITOR' ? '/auditor' : '/admin';
-                  navigate(`${base}/profile`);
-                  setIsProfileOpen(false);
-                  // 🔴 '/admin/profile' သို့ သွားရန် ညွှန်ကြားခြင်း
-                  if (window.location.pathname === '/admin/profile') {
-                    window.location.reload();
-                  } else {
-                    navigate('/admin/profile');
-                  }
-                }}
-                className="flex items-center w-full px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-              >
-                <User className="mr-2 h-4 w-4" />
-                {t('nav.profile')}
-              </button>
-              <button
-                onMouseDown={handleLogout}
-                className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                {t('nav.logout')}
-              </button>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* ─── Full Profile Picture Preview Modal ─── */}
+      {isImageModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-sm w-full overflow-hidden p-6 relative flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsImageModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+              title="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-5">
+              {t('nav.profile')}
+            </h3>
+
+            <div className="w-52 h-52 rounded-full overflow-hidden border-4 border-blue-500/30 shadow-xl flex items-center justify-center bg-slate-100 dark:bg-slate-900 mb-5">
+              {avatar ? (
+                <img
+                  src={avatar}
+                  alt={userName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-6xl font-bold text-slate-400">
+                  {userName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            <div className="text-center w-full">
+              <h4 className="text-lg font-bold text-slate-900 dark:text-white truncate">{userName}</h4>
+              <span className="inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                {userRole}
+              </span>
+              <div className="mt-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsImageModalOpen(false);
+                    handleNavigateToProfile();
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition shadow-sm cursor-pointer"
+                >
+                  Edit Profile & Photo →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
