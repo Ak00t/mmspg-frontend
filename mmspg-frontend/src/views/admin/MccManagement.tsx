@@ -19,7 +19,8 @@ interface MccCode {
 
 export default function MccConfiguration() {
   const { t } = useTranslation();
-  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const rawRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = rawRole.startsWith('ROLE_') ? rawRole.substring(5) : rawRole;
   const [mccCodes, setMccCodes] = useState<MccCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,7 +42,12 @@ export default function MccConfiguration() {
     try {
       const data = await getMccs();
       const items = Array.isArray(data) ? data : (data.content || data.data || []);
-      const sortedItems = [...items].sort((a: any, b: any) => b.id - a.id);
+      const sortedItems = [...items].sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
       setMccCodes(sortedItems);
     } catch (error) {
       console.error('Error fetching MCC codes:', error);
@@ -239,7 +245,7 @@ export default function MccConfiguration() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {userRole === 'ADMIN' && (
+                      {userRole === 'ADMIN' ? (
                         <div className="flex justify-end space-x-2">
                           <button 
                             onClick={() => openEditModal(mcc)}
@@ -252,6 +258,8 @@ export default function MccConfiguration() {
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">View Only</span>
                       )}
                     </td>
                   </tr>

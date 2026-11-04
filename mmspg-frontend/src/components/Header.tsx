@@ -533,7 +533,7 @@ export default function Header({ onToggleSidebar, isSidebarOpen = true }: Header
               </div>
               <ChevronDown className="ml-2 h-4 w-4 text-slate-400" />
             </div>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            
           </button>
 
           {isProfileOpen && (
