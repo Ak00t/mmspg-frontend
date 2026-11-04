@@ -426,7 +426,13 @@ export default function AuditLogs() {
                 </div>
                 <div>
                   <span className="font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">Source Type</span>
-                  <span className="font-mono text-slate-700 dark:text-slate-300">{selectedLog.sourceType}</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    selectedLog.sourceType === 'FRONTEND_UI'
+                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                      : 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                  }`}>
+                    {selectedLog.sourceType === 'FRONTEND_UI' ? 'Portal UI' : 'REST API'} ({selectedLog.sourceType})
+                  </span>
                 </div>
               </div>
             </div>

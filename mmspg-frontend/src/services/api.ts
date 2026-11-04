@@ -64,6 +64,7 @@ class ApiClient {
     this.baseURL = defaults?.baseURL ?? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004');
     this.defaultHeaders = {
       'Content-Type': 'application/json',
+      'X-Client-Type': 'FRONTEND_UI',
       ...(defaults?.headers || {}),
     };
   }
