@@ -9,7 +9,8 @@ import {
   Loader2,
   Inbox,
   X,
-  Trash2
+  Trash2,
+  Menu
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import {
@@ -30,7 +31,12 @@ export interface NotificationItem {
   status?: string;
 }
 
-export default function Header() {
+export interface HeaderProps {
+  isSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+}
+
+export default function Header({ isSidebarOpen = true, onToggleSidebar }: HeaderProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -354,8 +360,20 @@ export default function Header() {
 
   return (
     <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 h-16 flex items-center justify-between px-6 shadow-xs z-10 transition-colors duration-200">
-      {/* Left: Portal Title + Search (No duplicate 3-bar hamburger icon) */}
+      {/* Left: Sidebar Toggle Button + Portal Title + Search */}
       <div className="flex items-center flex-1">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="mr-3.5 p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all focus:outline-none flex items-center justify-center cursor-pointer border border-slate-200 dark:border-slate-700 shadow-xs active:scale-95"
+            title={isSidebarOpen ? "Collapse Sidebar" : "Open Sidebar"}
+            aria-label="Toggle Sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+
         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 hidden md:block tracking-tight">
           {portalTitle}
         </h2>
