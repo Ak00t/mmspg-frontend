@@ -21,7 +21,7 @@ export default function Layout() {
     <div className="flex h-screen bg-slate-50 dark:bg-slate-900 overflow-hidden font-sans transition-colors duration-200">
       <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
       <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">
-        <Header onToggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
+        <Header isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 dark:bg-slate-900 p-6 transition-colors duration-200">
           <div className="max-w-7xl mx-auto">
             <Outlet />
