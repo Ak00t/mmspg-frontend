@@ -309,7 +309,7 @@
   "merchantReports": {
     "title": "Merchant Reports Export",
     "subtitle": "Generate and download official Sales Ledger transactions and Settlement payout records in PDF, Excel (.xlsx), or CSV.",
-    "downloadReports": "Download Reports"
+    "downloadReports": "Download Reports",
     "colStatus": "Status"
   },
   "fees": {

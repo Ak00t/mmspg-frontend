@@ -12,7 +12,7 @@ import {
   ChevronLeft,
   FileText,
   Webhook,
-  LogOut
+  LogOut,
   Percent
 } from 'lucide-react';
 
