@@ -41,6 +41,18 @@ type RequestInterceptor = (config: {
   [key: string]: any;
 }) => any | Promise<any>;
 
+export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
+
+export function getMediaUrl(path?: string | null): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  const cleanBase = API_BASE_URL.replace(/\/$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${cleanBase}${cleanPath}`;
+}
+
 class ApiClient {
   baseURL: string;
   defaultHeaders: Record<string, string>;
@@ -61,7 +73,7 @@ class ApiClient {
   };
 
   constructor(defaults?: { baseURL?: string; headers?: Record<string, string> }) {
-    this.baseURL = defaults?.baseURL ?? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004');
+    this.baseURL = defaults?.baseURL ?? API_BASE_URL;
     this.defaultHeaders = {
       'Content-Type': 'application/json',
       'X-Client-Type': 'FRONTEND_UI',

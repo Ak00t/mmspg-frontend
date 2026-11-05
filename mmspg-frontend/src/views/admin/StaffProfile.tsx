@@ -21,7 +21,7 @@ import {
   updateStaffPassword
 } from '../../services/adminManagementApi';
 import { getMerchantProfile } from '../../features/main-merchant/api/merchantDashboardApi';
-import { api } from '../../services/api';
+import { api, getMediaUrl } from '../../services/api';
 
 export default function StaffProfile() {
   const { t } = useTranslation();
@@ -83,10 +83,7 @@ export default function StaffProfile() {
 
             const localSaved = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
             if (data.profileImageUrl && typeof data.profileImageUrl === 'string' && data.profileImageUrl.trim()) {
-              const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
-              const fullUrl = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
-                ? data.profileImageUrl
-                : `${apiBase}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+              const fullUrl = getMediaUrl(data.profileImageUrl);
 
               if (localSaved && localSaved.startsWith('data:')) {
                 setProfileImageUrl(localSaved);
@@ -112,10 +109,7 @@ export default function StaffProfile() {
 
             const localSaved = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
             if (data.profileImageUrl && typeof data.profileImageUrl === 'string' && data.profileImageUrl.trim()) {
-              const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
-              const fullUrl = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
-                ? data.profileImageUrl
-                : `${apiBase}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+              const fullUrl = getMediaUrl(data.profileImageUrl);
 
               if (localSaved && localSaved.startsWith('data:')) {
                 setProfileImageUrl(localSaved);
@@ -179,10 +173,7 @@ export default function StaffProfile() {
   };
 
   const handleProfileImageUploaded = (newUrl: string) => {
-    const fullUrl =
-      newUrl.startsWith('http') || newUrl.startsWith('blob:') || newUrl.startsWith('data:')
-        ? newUrl
-        : `http://127.0.0.1:8004${newUrl.startsWith('/') ? '' : '/'}${newUrl}`;
+    const fullUrl = getMediaUrl(newUrl);
     setProfileImageUrl(fullUrl);
     localStorage.setItem('adminProfileImage', fullUrl);
     localStorage.setItem('userAvatar', fullUrl);

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { User, Camera, Loader2, CheckCircle2, AlertCircle, UploadCloud } from 'lucide-react';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 
 interface ProfilePictureUploadProps {
   currentImageUrl?: string | null;
@@ -116,10 +116,7 @@ export default function ProfilePictureUpload({
         (typeof data === 'string' ? data : null) ||
         previewUrl;
 
-      let imageUrlOrBase64 = rawUrl;
-      if (rawUrl && !rawUrl.startsWith('http') && !rawUrl.startsWith('blob:') && !rawUrl.startsWith('data:')) {
-        imageUrlOrBase64 = `http://127.0.0.1:8004${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
-      }
+      const imageUrlOrBase64 = getMediaUrl(rawUrl);
 
       const imageToStore = base64Image || imageUrlOrBase64;
       setSelectedFile(null);

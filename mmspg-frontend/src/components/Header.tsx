@@ -19,7 +19,7 @@ import {
   getStaffProfile
 } from '../services/adminManagementApi';
 import { getMerchantProfile } from '../features/main-merchant/api/merchantDashboardApi';
-import { api } from '../services/api';
+import { api, getMediaUrl } from '../services/api';
 
 export interface NotificationItem {
   id: string | number;
@@ -239,10 +239,7 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
           setUserRole('MERCHANT');
           const local = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
           if (data.profileImageUrl && typeof data.profileImageUrl === 'string' && data.profileImageUrl.trim()) {
-            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
-            const url = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
-              ? data.profileImageUrl
-              : `${apiBase}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+            const url = getMediaUrl(data.profileImageUrl);
             if (local?.startsWith('data:')) {
               setAvatar(local);
             } else {
@@ -262,10 +259,7 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
           if (data?.role) { localStorage.setItem('userRole', data.role); setUserRole(data.role); }
           const local = localStorage.getItem('adminProfileImage') || localStorage.getItem('userAvatar');
           if (data?.profileImageUrl?.trim()) {
-            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8004';
-            const url = data.profileImageUrl.startsWith('http') || data.profileImageUrl.startsWith('data:')
-              ? data.profileImageUrl
-              : `${apiBase}${data.profileImageUrl.startsWith('/') ? '' : '/'}${data.profileImageUrl}`;
+            const url = getMediaUrl(data.profileImageUrl);
             if (local?.startsWith('data:')) {
               setAvatar(local);
             } else {

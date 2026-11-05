@@ -142,7 +142,7 @@ export default function Login() {
     } catch (err: any) {
       if (err.message && err.message.includes('Network Error')) {
         setError(i18n.language === 'my'
-          ? 'Backend Server သို့ ချိတ်ဆက်၍မရပါ (http://127.0.0.1:8004)။ ကျေးဇူးပြု၍ Backend Server ဖွင့်ထားခြင်း ရှိ/မရှိ စစ်ဆေးပေးပါ။'
+          ? 'Backend Server သို့ ချိတ်ဆက်၍မရပါ။ ကျေးဇူးပြု၍ Backend Server ဖွင့်ထားခြင်း ရှိ/မရှိ စစ်ဆေးပေးပါ။'
           : 'Cannot connect to backend server. Please ensure the backend is running.');
       } else {
         const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message;
