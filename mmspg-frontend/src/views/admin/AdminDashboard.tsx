@@ -1,39 +1,40 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Clock, Activity, Monitor, Users, FileText, CheckCircle, RefreshCw, AlertCircle, ShieldCheck, ArrowRight } from 'lucide-react';
-import { getAdminDashboardSummary } from '../../services/adminDashboardApi';
-import { fetchRecentAuditLogs, type AuditLogItem } from '../../services/auditLogApi';
-
-interface RecentRequest {
-  requestId: string;
-  merchantName: string;
-  businessType: string;
-  dateApplied: string;
-  status: string;
-}
+import {
+  TrendingUp,
+  Clock,
+  Server,
+  Users,
+  Store,
+  CreditCard,
+  Building2,
+  Percent,
+  CheckCircle2,
+  RefreshCw,
+  AlertCircle,
+  ArrowRight,
+  ShieldCheck,
+  ChevronRight,
+  Activity
+} from 'lucide-react';
+import { getAdminDashboardSummary, type RecentMerchantRequestDto } from '../../services/adminDashboardApi';
 
 interface DashboardData {
   pendingApprovals: number;
   totalVolume: string;
   activeGateways: number;
   internalStaff: number;
-  recentRequests: RecentRequest[];
+  recentRequests: RecentMerchantRequestDto[];
 }
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const userRole = (localStorage.getItem('userRole') || 'ADMIN').toUpperCase();
-  const basePath = userRole === 'SUPPORT' ? '/support' : userRole === 'AUDITOR' ? '/auditor' : '/admin';
-  const dashboardTitle = userRole === 'SUPPORT' 
-    ? t('dashboard.supportTitle') 
-    : userRole === 'AUDITOR' 
-    ? t('dashboard.auditorTitle') 
-    : t('dashboard.adminTitle');
+  const basePath = userRole === 'SUPPORT' ? '/support' : '/admin';
 
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [recentAuditLogs, setRecentAuditLogs] = useState<AuditLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,42 +45,25 @@ export default function AdminDashboard() {
     setError(null);
 
     try {
-      const summaryPromise = getAdminDashboardSummary();
-      const auditLogsPromise = (userRole === 'ADMIN' || userRole === 'AUDITOR')
-        ? fetchRecentAuditLogs(5).catch((err) => {
-            console.warn("Could not load recent audit logs:", err);
-            return [];
-          })
-        : Promise.resolve([]);
-
-      const [summary, auditLogs] = await Promise.all([summaryPromise, auditLogsPromise]);
+      const summary = await getAdminDashboardSummary();
       const volume = summary.totalVolumeToday != null ? Number(summary.totalVolumeToday) : 0;
       const formattedVolume = `MMK ${volume.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-
-      const recentRequests = (summary.recentMerchantRequests || []).map((req) => ({
-        requestId: req.requestId ? String(req.requestId).substring(0, 8) + '...' : 'N/A',
-        merchantName: req.merchantName || 'Unknown',
-        businessType: req.businessType || 'N/A',
-        dateApplied: req.date ? new Date(req.date).toLocaleDateString() : 'N/A',
-        status: req.status || 'PENDING'
-      }));
 
       setDashboardData({
         pendingApprovals: Number(summary.totalPendingApprovals) || 0,
         totalVolume: formattedVolume,
         activeGateways: Number(summary.activeGateways) || 0,
         internalStaff: Number(summary.internalStaff) || 0,
-        recentRequests: recentRequests
+        recentRequests: summary.recentMerchantRequests || []
       });
-      setRecentAuditLogs(auditLogs);
     } catch (err: any) {
       console.error("Error fetching admin dashboard summary:", err);
-      setError(err.response?.data?.message || err.message || t('dashboard.loadError'));
+      setError(err.response?.data?.message || err.message || t('dashboard.loadError', 'Failed to load real data'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t, userRole]);
+  }, [t]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -87,26 +71,26 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500 dark:text-slate-400 space-y-3">
+      <div className="flex flex-col items-center justify-center min-h-[420px] text-slate-500 dark:text-slate-400 space-y-3">
         <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
-        <p className="text-sm font-medium">{t('dashboard.loadingData')}</p>
+        <p className="text-sm font-medium">{t('dashboard.loadingData', 'Loading operations dashboard...')}</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-600 dark:text-slate-300 space-y-4">
-        <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-500 rounded-full">
+      <div className="flex flex-col items-center justify-center min-h-[420px] text-slate-600 dark:text-slate-300 space-y-4">
+        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-500 rounded-full">
           <AlertCircle className="h-8 w-8" />
         </div>
-        <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+        <p className="text-rose-600 dark:text-rose-400 font-medium">{error}</p>
         <button
           onClick={() => fetchDashboardData()}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition shadow-xs cursor-pointer"
         >
           <RefreshCw className="h-4 w-4 mr-2" />
-          {t('common.retry') || 'Retry'}
+          {t('common.retry', 'Retry')}
         </button>
       </div>
     );
@@ -122,209 +106,329 @@ export default function AdminDashboard() {
 
   const statusClass = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
-      case 'ACTIVE':  return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-      case 'REJECTED': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      default: return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'PENDING': return t('merchants.pending');
-      case 'ACTIVE': return t('merchants.active');
-      case 'APPROVED': return t('merchants.approved');
-      case 'REJECTED': return t('merchants.rejected');
-      default: return status;
+      case 'PENDING': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+      case 'ACTIVE':  return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+      case 'APPROVED': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+      case 'REJECTED': return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+      default: return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
     }
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      {/* Platform Header & Live Status */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{dashboardTitle}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Real-time overview of gateway metrics, approvals, and transaction volume.</p>
-        </div>
-        <button
-          onClick={() => fetchDashboardData(true)}
-          disabled={refreshing}
-          className="inline-flex items-center px-3.5 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </div>
-
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-amber-50 dark:bg-amber-900/30 text-amber-500 rounded-full">
-            <Clock className="h-6 w-6" />
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+              {userRole === 'SUPPORT' ? t('dashboard.supportTitle', 'Support Dashboard') : t('dashboard.adminTitle', 'Admin Operations Dashboard')}
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Gateways Operational</span>
+            </span>
           </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('dashboard.pendingApprovals')}</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white">{data.pendingApprovals}</p>
-          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Real-time merchant onboarding pipeline, payment throughput, and platform administration.
+          </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-green-50 dark:bg-green-900/30 text-green-500 rounded-full">
-            <Activity className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('dashboard.totalVolume')}</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white">{data.totalVolume}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-500 rounded-full">
-            <Monitor className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('dashboard.activeGateways')}</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white">{data.activeGateways}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center space-x-4">
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 rounded-full">
-            <Users className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{t('dashboard.internalStaff')}</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-white">{data.internalStaff}</p>
-          </div>
+        <div className="flex items-center gap-2.5 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => fetchDashboardData(true)}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin text-blue-500' : ''}`} />
+            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
         </div>
       </div>
 
-      {/* Recent Merchant Requests Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/80">
-          <div className="flex items-center space-x-2">
-            <FileText className="h-5 w-5 text-slate-400" />
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">{t('dashboard.recentRequests')}</h2>
-          </div>
+      {/* Quick Administrative Actions Bar */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2.5 px-1">
+          Quick Management Actions
         </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-white dark:bg-slate-800">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('dashboard.requestId')}</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('dashboard.merchantName')}</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('dashboard.businessType')}</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('common.date')}</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('common.status')}</th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-              {data.recentRequests.length > 0 ? (
-                data.recentRequests.map((request, index) => (
-                  <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">{request.requestId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">{request.merchantName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">{request.businessType}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">{request.dateApplied}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${statusClass(request.status)}`}>
-                        {getStatusLabel(request.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
-                        onClick={() => navigate(`${basePath}/merchant-approvals`)}
-                        className="inline-flex items-center px-3 py-1.5 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1.5" />
-                        {t('common.review')}
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
-                    {t('dashboard.noRecentRequests')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Recent Security & Audit Events (ADMIN & AUDITOR) */}
-      {(userRole === 'ADMIN' || userRole === 'AUDITOR') && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/80">
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="h-5 w-5 text-indigo-500" />
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Recent System Audit Events</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate(`${basePath}/merchant-approvals`)}
+            className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-indigo-50 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-left transition group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:scale-105 transition-transform shrink-0">
+                <Store className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Merchants</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Review approvals</p>
+              </div>
             </div>
+            {data.pendingApprovals > 0 && (
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-amber-500 text-white shrink-0 ml-1">
+                {data.pendingApprovals}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate(`${basePath}/terminals`)}
+            className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-emerald-50 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-left transition group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-lg group-hover:scale-105 transition-transform shrink-0">
+                <CreditCard className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Terminals</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Provision & POS</p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate(`${basePath}/fee-configuration`)}
+            className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-left transition group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-lg group-hover:scale-105 transition-transform shrink-0">
+                <Percent className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Fee Config</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Rates & MDR</p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate(`${basePath}/branches`)}
+            className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-purple-50 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-left transition group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 rounded-lg group-hover:scale-105 transition-transform shrink-0">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Branches</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Location network</p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+          </button>
+
+          {userRole === 'ADMIN' && (
             <button
-              onClick={() => navigate(`${basePath}/audit-logs`)}
-              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 inline-flex items-center gap-1 transition-colors"
+              type="button"
+              onClick={() => navigate(`${basePath}/staff-users`)}
+              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-rose-50 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-left transition group cursor-pointer col-span-2 sm:col-span-1"
             >
-              View Full Audit Trail
-              <ArrowRight className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-lg group-hover:scale-105 transition-transform shrink-0">
+                  <Users className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">Staff Users</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Roles & access</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 4 KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Volume Today */}
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {t('dashboard.totalVolume', 'Total Volume (Today)')}
+            </span>
+            <div className="p-2.5 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              {data.totalVolume}
+            </h2>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium flex items-center gap-1">
+              <Activity className="h-3 w-3" />
+              <span>Real-time payment throughput</span>
+            </p>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+        </div>
+
+        {/* Pending Approvals */}
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {t('dashboard.pendingApprovals', 'Pending Approvals')}
+            </span>
+            <div className={`p-2.5 rounded-xl ${
+              data.pendingApprovals > 0
+                ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 animate-pulse'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+            }`}>
+              <Clock className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                {data.pendingApprovals}
+              </h2>
+              {data.pendingApprovals > 0 && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`${basePath}/merchant-approvals`)}
+                  className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                >
+                  <span>Review now</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {data.pendingApprovals > 0 ? 'Merchants awaiting KYB verification' : 'All onboarding requests reviewed'}
+            </p>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+        </div>
+
+        {/* Active Gateways / Terminals */}
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {t('dashboard.activeGateways', 'Online Terminals')}
+            </span>
+            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl">
+              <Server className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              {data.activeGateways}
+            </h2>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              <span>Ready for payment processing</span>
+            </p>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+        </div>
+
+        {/* Internal Staff */}
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden group">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {t('dashboard.internalStaff', 'Internal Operators')}
+            </span>
+            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl">
+              <Users className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              {data.internalStaff}
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Admin & support staff accounts
+            </p>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
+        </div>
+      </div>
+
+      {/* Main Grid: 2/3 Merchant Approvals, 1/3 Operational Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left: Merchant Onboarding & Request Queue (8 cols) */}
+        <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                <Store className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {t('dashboard.recentRequests', 'Merchant Onboarding Queue')}
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Recent merchant registrations and status verifications
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate(`${basePath}/merchant-approvals`)}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 cursor-pointer"
+            >
+              <span>View All</span>
+              <ArrowRight className="h-3 w-3" />
             </button>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-              <thead className="bg-white dark:bg-slate-800">
+            <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold text-[11px]">
                 <tr>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Timestamp</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Module</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Action</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actor</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Description</th>
+                  <th className="px-5 py-3 text-left">Merchant</th>
+                  <th className="px-5 py-3 text-left">Category</th>
+                  <th className="px-5 py-3 text-left">Applied Date</th>
+                  <th className="px-5 py-3 text-left">Status</th>
+                  <th className="px-5 py-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-                {recentAuditLogs.length > 0 ? (
-                  recentAuditLogs.map((log) => (
-                    <tr key={log.auditId} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-sm">
-                      <td className="px-6 py-3.5 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 font-mono">
-                        {log.createdAt ? new Date(log.createdAt).toLocaleString() : 'N/A'}
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                {data.recentRequests && data.recentRequests.length > 0 ? (
+                  data.recentRequests.map((request, index) => (
+                    <tr key={index} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="font-semibold text-slate-900 dark:text-white">{request.merchantName}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          ID: {request.requestId ? String(request.requestId).substring(0, 8) + '...' : 'N/A'}
+                        </div>
                       </td>
-                      <td className="px-6 py-3.5 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200">
-                        {log.menuName}
+                      <td className="px-5 py-3.5 whitespace-nowrap font-medium text-slate-600 dark:text-slate-300">
+                        {request.businessType || 'General Retail'}
                       </td>
-                      <td className="px-6 py-3.5 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                          {log.action}
+                      <td className="px-5 py-3.5 whitespace-nowrap text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                        {request.date ? new Date(request.date).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusClass(request.status)}`}>
+                          {request.status}
                         </span>
                       </td>
-                      <td className="px-6 py-3.5 whitespace-nowrap text-slate-600 dark:text-slate-300">
-                        <span className="font-medium">{log.actorId || 'SYSTEM'}</span>
-                        <span className="ml-1 text-xs text-slate-400">
-                          ({log.roleName === 'UNKNOWN' ? 'SYSTEM' : (log.roleName || 'SYSTEM')})
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          log.status === 'SUCCESS'
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                            : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-                        }`}>
-                          {log.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-xs text-slate-500 dark:text-slate-400 max-w-xs truncate" title={log.description}>
-                        {log.description || '-'}
+                      <td className="px-5 py-3.5 whitespace-nowrap text-right font-medium">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`${basePath}/merchant-approvals`)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 dark:bg-blue-950/50 dark:hover:bg-blue-600 rounded-lg border border-blue-200 dark:border-blue-800 transition cursor-pointer"
+                        >
+                          <span>Review</span>
+                          <ChevronRight className="h-3 w-3" />
+                        </button>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
-                      No recent audit logs found.
+                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
+                      <CheckCircle2 className="h-7 w-7 text-emerald-500 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700 dark:text-slate-300">All merchant applications reviewed</p>
+                      <p className="text-xs text-slate-400 mt-0.5">New registration requests will appear here in real-time.</p>
                     </td>
                   </tr>
                 )}
@@ -332,7 +436,105 @@ export default function AdminDashboard() {
             </table>
           </div>
         </div>
-      )}
+
+        {/* Right: Platform Health & Quick Ecosystem Overview (4 cols) */}
+        <div className="lg:col-span-4 space-y-4">
+          {/* Terminal & Hardware Provisioning */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 rounded-lg">
+                  <CreditCard className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Terminal Infrastructure</h3>
+                  <p className="text-[10px] text-slate-400">POS & Virtual Terminals</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                {data.activeGateways} Online
+              </span>
+            </div>
+            <div className="mt-3.5 space-y-2 text-xs">
+              <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
+                <span>Active Terminal Fleet</span>
+                <span className="font-bold text-slate-900 dark:text-white">{data.activeGateways} Terminals</span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '100%' }} />
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`${basePath}/terminals`)}
+                className="w-full mt-2.5 py-2 px-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span>Provision New Terminal</span>
+                <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+
+          {/* Fee Management & Revenue Rules */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-blue-50 dark:bg-blue-950/50 text-blue-600 rounded-lg">
+                  <Percent className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white">Fee Configuration</h3>
+                  <p className="text-[10px] text-slate-400">MDR Rates & Transaction Charges</p>
+                </div>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Manage percentage, flat, or tiered fee configurations across all merchant accounts and card types.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate(`${basePath}/fee-configuration`)}
+              className="w-full mt-3 py-2 px-3 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-950/60 rounded-xl transition flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <span>Manage Fee Rules</span>
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+
+          {/* Compliance & Audit Quick Switch */}
+          {userRole === 'ADMIN' && (
+            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5 rounded-2xl shadow-sm border border-indigo-800/40">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-500/20 rounded-lg border border-indigo-400/30 text-indigo-200">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold tracking-tight">Security & Audit Compliance</h3>
+                  <p className="text-[10px] text-indigo-200">Auditor portal & system events</p>
+                </div>
+              </div>
+              <p className="mt-2.5 text-xs text-indigo-100 leading-relaxed">
+                Dedicated compliance monitoring is active for internal security events and audit trails.
+              </p>
+              <div className="mt-3.5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin/audit-dashboard')}
+                  className="flex-1 py-1.5 px-2.5 text-center text-xs font-semibold bg-white/10 hover:bg-white/20 text-white rounded-lg transition cursor-pointer border border-white/10"
+                >
+                  Audit Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin/audit-logs')}
+                  className="flex-1 py-1.5 px-2.5 text-center text-xs font-semibold bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition cursor-pointer shadow-xs"
+                >
+                  Audit Logs
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
