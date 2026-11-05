@@ -78,7 +78,7 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
       );
     }
 
-    if (userRole === 'ADMIN' || userRole === 'AUDITOR') {
+    if (userRole === 'ADMIN') {
       sidebarLinks.push(
         { to: `${basePath}/audit-logs`, icon: ShieldCheck, label: t('nav.auditLogs', 'Audit Logs') }
       );

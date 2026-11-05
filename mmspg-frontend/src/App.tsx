@@ -18,6 +18,7 @@ import StaffUsers from './views/admin/StaffUsers';
 import StaffProfile from './views/admin/StaffProfile';
 import Settings from './views/admin/Settings';
 import AuditLogs from './views/admin/AuditLogs';
+import AuditDashboard from './views/admin/AuditDashboard';
 
 // Merchant Views
 import MerchantDashboard from './views/merchant/Dashboard';
@@ -64,6 +65,7 @@ export default function App() {
               <Route path="terminals" element={<AdminTerminals />} />
               <Route path="staff-users" element={<StaffUsers />} />
               <Route path="audit-logs" element={<AuditLogs />} />
+              <Route path="audit-dashboard" element={<AuditDashboard />} />
               <Route path="profile" element={<StaffProfile />} />
               <Route path="settings" element={<Settings />} />
             </Route>
@@ -88,7 +90,7 @@ export default function App() {
           <Route path="/auditor" element={<ProtectedRoute allowedRoles={['AUDITOR']} />}>
             <Route element={<Layout />}>
               <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="dashboard" element={<AuditDashboard />} />
               <Route path="merchant-approvals" element={<MerchantApprovals />} />
               <Route path="branches" element={<BranchManagement />} />
               <Route path="mcc-configuration" element={<MccManagement />} />
