@@ -87,11 +87,7 @@ export default function ProfilePictureUpload({
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post(apiEndpoint, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await api.post(apiEndpoint, formData);
 
       const data = response.data;
 

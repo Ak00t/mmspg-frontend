@@ -152,3 +152,26 @@ export async function markNotificationAsRead(id: string | number) {
   const response = await api.put(`/api/v1/notifications/${id}/read`)
   return response.data
 }
+
+// --- Fee Configuration API ---
+export async function getFeeConfigs() {
+  const response = await api.get('/api/v1/admin/fees')
+  return response.data
+}
+
+export async function createFeeConfig(payload: any) {
+  const response = await api.post('/api/v1/admin/fees', payload)
+  return response.data
+}
+
+export async function updateFeeConfig(feeId: string, payload: any) {
+  const response = await api.put(`/api/v1/admin/fees/${feeId}`, payload)
+  return response.data
+}
+
+export async function calculateFee(feeId: string, amount: number | string) {
+  const response = await api.post('/api/v1/admin/fees/calculate', null, {
+    params: { feeId, amount }
+  })
+  return response.data
+}

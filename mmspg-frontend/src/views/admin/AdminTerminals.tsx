@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Edit, ShieldAlert, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Search, Plus, Edit, ShieldAlert, X, AlertTriangle, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   getTerminals,
   getMerchants,
@@ -46,6 +46,10 @@ export default function AdminTerminals() {
     terminalType: 'PHYSICAL_POS',
     terminalCode: ''
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [editingTerminal, setEditingTerminal] = useState<Terminal | null>(null);
   const [suspendingTerminal, setSuspendingTerminal] = useState<Terminal | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
@@ -84,22 +88,79 @@ export default function AdminTerminals() {
     }
   };
 
+  const availableBranchesForSelectedMerchant = branches.filter(b => {
+    if (!newTerminal.merchantId) return false; 
+    const bMerchantId = b.merchantId || (b.merchant && b.merchant.id) || b.merchant_id;
+    return String(bMerchantId) === String(newTerminal.merchantId);
+  });
+
+  const validateAddTerminal = () => {
+    const errors: Record<string, string> = {};
+
+    if (!newTerminal.merchantId) {
+      errors.merchantId = "Please select a merchant";
+    }
+
+    if (!newTerminal.branchId) {
+      errors.branchId = "Please select a branch";
+    }
+
+    if (!newTerminal.terminalName.trim()) {
+      errors.terminalName = "Terminal Name / Model is required";
+    } else if (newTerminal.terminalName.trim().length < 2) {
+      errors.terminalName = "Terminal Name must be at least 2 characters";
+    } else if (newTerminal.terminalName.trim().length > 100) {
+      errors.terminalName = "Terminal Name cannot exceed 100 characters";
+    }
+
+    if (!newTerminal.terminalType) {
+      errors.terminalType = "Please select a terminal type";
+    }
+
+    if (newTerminal.terminalCode && newTerminal.terminalCode.trim()) {
+      if (!/^[A-Za-z0-9_-]+$/.test(newTerminal.terminalCode.trim())) {
+        errors.terminalCode = "Terminal code can only contain letters, numbers, hyphens, and underscores";
+      } else if (newTerminal.terminalCode.trim().length > 50) {
+        errors.terminalCode = "Terminal code cannot exceed 50 characters";
+      }
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleProvisionSubmit = async () => {
-    if (!newTerminal.merchantId || !newTerminal.terminalName) {
-      alert('Please fill in required fields');
+    setFormError('');
+    if (!validateAddTerminal()) {
+      setFormError("Please fix the highlighted errors before submitting.");
       return;
     }
+
+    setIsSubmitting(true);
     try {
-      await provisionTerminal(newTerminal);
+      await provisionTerminal({
+        ...newTerminal,
+        terminalName: newTerminal.terminalName.trim(),
+        terminalCode: newTerminal.terminalCode ? newTerminal.terminalCode.trim() : ''
+      });
       fetchTerminals();
       setIsAddModalOpen(false);
       setNewTerminal({ merchantId: '', branchId: '', terminalName: '', terminalType: 'PHYSICAL_POS', terminalCode: '' });
+      setFieldErrors({});
+      setFormError('');
       
       window.dispatchEvent(new Event('refreshNotifications'));
       alert('Terminal provisioned successfully!');
     } catch (error: any) {
       console.error('Error provisioning terminal:', error);
-      alert(`Failed to provision terminal: ${error.response?.data?.error || error.message || 'Unknown error'}`);
+      const backendError = error.response?.data?.error || error.response?.data?.message || error.message || 'Unknown error';
+      setFormError(backendError);
+
+      if (backendError.toLowerCase().includes("terminal code")) {
+        setFieldErrors(prev => ({ ...prev, terminalCode: backendError }));
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -168,7 +229,11 @@ export default function AdminTerminals() {
         </div>
         {userRole === 'ADMIN' && (
           <button 
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => {
+              setFieldErrors({});
+              setFormError('');
+              setIsAddModalOpen(true);
+            }}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
             {t('terminals.addTerminal')}
@@ -294,17 +359,41 @@ export default function AdminTerminals() {
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-700">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
               <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('terminals.modalAddTitle')}</h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => {
+                setIsAddModalOpen(false);
+                setFieldErrors({});
+                setFormError('');
+              }} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
+
             <div className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* Merchant Select */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.colMerchant')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('branches.colMerchant')} *</label>
                 <select 
                   value={newTerminal.merchantId}
-                  onChange={(e) => setNewTerminal({...newTerminal, merchantId: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewTerminal({
+                      ...newTerminal, 
+                      merchantId: e.target.value,
+                      branchId: '' // reset branch on merchant change
+                    });
+                    if (fieldErrors.merchantId) setFieldErrors(prev => ({ ...prev, merchantId: '', branchId: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.merchantId 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 >
                   <option value="">{t('branches.selectMerchant')}...</option>
                   {merchants.map((m, i) => (
@@ -313,71 +402,142 @@ export default function AdminTerminals() {
                     </option>
                   ))}
                 </select>
+                {fieldErrors.merchantId && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.merchantId}
+                  </p>
+                )}
               </div>
+
+              {/* Branch Select */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.selectBranch')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.selectBranch')} *</label>
                 <select 
                   value={newTerminal.branchId}
-                  onChange={(e) => setNewTerminal({...newTerminal, branchId: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewTerminal({...newTerminal, branchId: e.target.value});
+                    if (fieldErrors.branchId) setFieldErrors(prev => ({ ...prev, branchId: '' }));
+                  }}
+                  disabled={!newTerminal.merchantId}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors disabled:opacity-60 ${
+                    fieldErrors.branchId 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 >
                   <option value="">{t('terminals.selectBranch')}...</option>
-                  {branches
-                    .filter(b => {
-                      if (!newTerminal.merchantId) return true; 
-                      const bMerchantId = b.merchantId || (b.merchant && b.merchant.id) || b.merchant_id;
-                      if (!bMerchantId) return true; 
-                      return String(bMerchantId) === String(newTerminal.merchantId);
-                    })
-                    .map((b, i) => (
+                  {availableBranchesForSelectedMerchant.map((b, i) => (
                     <option key={b.branchId || b.id || i} value={b.branchId || b.id}>
                       {b.branchName || b.name || `Branch ${i+1}`}
                     </option>
                   ))}
                 </select>
+                {fieldErrors.branchId && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.branchId}
+                  </p>
+                )}
+                {newTerminal.merchantId && availableBranchesForSelectedMerchant.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    * This merchant has no branches. Please add a branch in Branch Management first.
+                  </p>
+                )}
               </div>
+
+              {/* Terminal Model / Name */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.colModel')}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.colModel')} *</label>
                 <input 
                   type="text" 
                   value={newTerminal.terminalName} 
-                  onChange={(e) => setNewTerminal({...newTerminal, terminalName: e.target.value})}
+                  onChange={(e) => {
+                    setNewTerminal({...newTerminal, terminalName: e.target.value});
+                    if (fieldErrors.terminalName) setFieldErrors(prev => ({ ...prev, terminalName: '' }));
+                  }}
                   placeholder="e.g. Counter 1 - Barcode POS"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.terminalName 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 />
+                {fieldErrors.terminalName && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.terminalName}
+                  </p>
+                )}
               </div>
+
+              {/* Terminal Type */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Terminal Type</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Terminal Type *</label>
                 <select 
                   value={newTerminal.terminalType}
-                  onChange={(e) => setNewTerminal({...newTerminal, terminalType: e.target.value})}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(e) => {
+                    setNewTerminal({...newTerminal, terminalType: e.target.value});
+                    if (fieldErrors.terminalType) setFieldErrors(prev => ({ ...prev, terminalType: '' }));
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.terminalType 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 >
                   <option value="PHYSICAL_POS">Physical POS</option>
                   <option value="VIRTUAL_API">Virtual Checkout API</option>
                 </select>
+                {fieldErrors.terminalType && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.terminalType}
+                  </p>
+                )}
               </div>
+
+              {/* Terminal Code (Optional) */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('terminals.terminalId')} (Optional)</label>
                 <input 
                   type="text" 
                   value={newTerminal.terminalCode} 
-                  onChange={(e) => setNewTerminal({...newTerminal, terminalCode: e.target.value})}
+                  onChange={(e) => {
+                    setNewTerminal({...newTerminal, terminalCode: e.target.value});
+                    if (fieldErrors.terminalCode) setFieldErrors(prev => ({ ...prev, terminalCode: '' }));
+                  }}
                   placeholder="Auto-generated if left blank"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white sm:text-sm outline-none transition-colors ${
+                    fieldErrors.terminalCode 
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
+                  }`}
                 />
+                {fieldErrors.terminalCode && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                    {fieldErrors.terminalCode}
+                  </p>
+                )}
               </div>
             </div>
+
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-end space-x-3">
               <button 
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setFieldErrors({});
+                  setFormError('');
+                }}
                 className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 {t('common.cancel')}
               </button>
               <button 
+                disabled={isSubmitting}
                 onClick={handleProvisionSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {t('terminals.createTerminal')}
               </button>

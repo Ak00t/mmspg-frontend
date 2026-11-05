@@ -24,6 +24,7 @@ export type MerchantProfile = {
   contactName?: string
   settlementAccountNo: string
   status: string
+  profileImageUrl?: string | null
   mccCode?: string
   mccDescription?: string
 }
@@ -48,8 +49,8 @@ export type WebhookConfig = {
   maxRetry: number
   description?: string
   status: 'ACTIVE' | 'INACTIVE'
-  createdAt?: string
-  updatedAt?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export type CreateWebhookInput = {
@@ -57,17 +58,16 @@ export type CreateWebhookInput = {
   returnUrl?: string
   eventPaymentCompleted: boolean
   eventPaymentFailed: boolean
-  maxRetry: number
+  maxRetry?: number
   description?: string
 }
 
 export type UpdateWebhookInput = {
-  callbackUrl: string
+  callbackUrl?: string
   returnUrl?: string
-  eventPaymentCompleted: boolean
-  eventPaymentFailed: boolean
-  maxRetry: number
+  eventPaymentCompleted?: boolean
+  eventPaymentFailed?: boolean
+  maxRetry?: number
   description?: string
   status?: 'ACTIVE' | 'INACTIVE'
 }
-
