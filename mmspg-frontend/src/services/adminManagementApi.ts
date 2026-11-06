@@ -132,10 +132,13 @@ export async function updateTerminal(terminalId: string, payload: any) {
   return response.data
 }
 
-export async function suspendTerminal(terminalId: string, reason: string) {
+export async function suspendTerminal(terminalId: string, reason?: string) {
   const response = await api.put(`/api/v1/admin/terminals/${terminalId}/suspend`, { reason })
   return response.data
 }
+
+export const banTerminal = suspendTerminal
+export const cancelBanTerminal = reactivateTerminal
 
 export async function reactivateTerminal(terminalId: string) {
   const response = await api.put(`/api/v1/admin/terminals/${terminalId}/reactivate`)
