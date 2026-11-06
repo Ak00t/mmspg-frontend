@@ -776,11 +776,11 @@ export default function FeeConfiguration() {
                   }`}
                 >
                   <option value="">-- Choose Merchant --</option>
-                  {merchants.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.businessName} ({m.merchantCode})
-                    </option>
-                  ))}
+  {merchants.map((m: any) => (
+    <option key={m.id} value={m.merchantId || m.id}>
+      {m.businessName} ({m.merchantCode})
+    </option>
+  ))}
                 </select>
                 {addFieldErrors.merchantId && (
                   <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
