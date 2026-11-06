@@ -41,7 +41,7 @@ type RequestInterceptor = (config: {
   [key: string]: any;
 }) => any | Promise<any>;
 
-export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8082';
+export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002';
 
 export function getMediaUrl(path?: string | null): string {
   if (!path) return '';
