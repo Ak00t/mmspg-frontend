@@ -71,3 +71,24 @@ export type UpdateWebhookInput = {
   description?: string
   status?: 'ACTIVE' | 'INACTIVE'
 }
+
+export type ApiCredentialItem = {
+  credentialId: string
+  clientId: string
+  clientSecret?: string | null
+  keyName: string
+  environment: 'SANDBOX' | 'PRODUCTION'
+  status: 'ACTIVE' | 'REVOKED' | 'EXPIRED'
+  ipAddress: string
+  rateLimit?: number
+  lastUsedAt?: string | null
+  revokedAt?: string | null
+  expiresAt?: string | null
+  createdAt: string
+}
+
+export type CreateCredentialInput = {
+  keyName: string
+  ipAddress?: string
+  environment: 'SANDBOX' | 'PRODUCTION'
+}

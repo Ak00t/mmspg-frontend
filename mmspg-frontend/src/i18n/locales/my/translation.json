@@ -64,7 +64,8 @@
     "version": "v1.0.0",
     "reports": "အစီရင်ခံစာများ",
     "report": "အစီရင်ခံစာများ",
-    "webhooks": "ဝဘ်ဟွတ်များ"
+    "webhooks": "ဝဘ်ဟွတ်များ",
+    "apiCredentials": "API လျှို့ဝှက်ကုဒ်များ"
   },
   "header": {
     "adminPortal": "အက်ဒ်မင် ပေါ်တယ်",

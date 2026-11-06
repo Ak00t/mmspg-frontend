@@ -64,7 +64,8 @@
     "version": "v1.0.0",
     "reports": "Reports",
     "report": "Reports",
-    "webhooks": "Webhooks"
+    "webhooks": "Webhooks",
+    "apiCredentials": "API Credentials"
   },
   "header": {
     "adminPortal": "Admin Portal",

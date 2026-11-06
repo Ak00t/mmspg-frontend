@@ -24,6 +24,7 @@ import AuditDashboard from './views/admin/AuditDashboard';
 import MerchantDashboard from './views/merchant/Dashboard';
 import MerchantReports from './views/merchant/Reports';
 import MerchantWebhooks from './views/merchant/Webhooks';
+import MerchantApiCredentials from './views/merchant/ApiCredentials';
 import ResetPassword from './views/auth/ResetPassword';
 import ForgotPassword from './views/auth/ForgotPassword';
 
@@ -107,6 +108,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<MerchantDashboard />} />
+              <Route path="credentials" element={<MerchantApiCredentials />} />
               <Route path="reports" element={<MerchantReports />} />
               <Route path="webhooks" element={<MerchantWebhooks />} />
               <Route path="profile" element={<StaffProfile />} />
