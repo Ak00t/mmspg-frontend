@@ -32,19 +32,18 @@ export function MerchantReportExport() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const SALES_LEDGER_STATUSES = [
-    { value: 'ALL', label: isMy ? 'အခြေအနေ အားလုံး' : 'All Statuses' },
-    { value: 'COMPLETED', label: isMy ? 'အောင်မြင်သည်' : 'Completed' },
-    { value: 'FAILED', label: isMy ? 'မအောင်မြင်ပါ' : 'Failed' },
-    { value: 'PENDING_AUTHORIZATION', label: isMy ? 'စောင့်ဆိုင်းဆဲ' : 'Pending Authorization' },
-    { value: 'INITIATED', label: isMy ? 'စတင်ဆောင်ရွက်ဆဲ' : 'Initiated' },
+    { value: 'ALL', label: isMy ? 'ALL (အခြေအနေ အားလုံး)' : 'ALL' },
+    { value: 'INITIATED', label: isMy ? 'INITIATED (စတင်ဆောင်ရွက်ဆဲ)' : 'INITIATED' },
+    { value: 'COMPLETED', label: isMy ? 'COMPLETED (အောင်မြင်သည်)' : 'COMPLETED' },
+    { value: 'FAILED', label: isMy ? 'FAILED (မအောင်မြင်ပါ)' : 'FAILED' },
   ]
 
   const SETTLEMENT_STATUSES = [
-    { value: 'ALL', label: isMy ? 'အခြေအနေ အားလုံး' : 'All Statuses' },
-    { value: 'PENDING', label: isMy ? 'ဆိုင်းငံ့' : 'Pending' },
-    { value: 'PROCESSING', label: isMy ? 'လုပ်ဆောင်ဆဲ' : 'Processing' },
-    { value: 'COMPLETED', label: isMy ? 'အောင်မြင်သည်' : 'Completed' },
-    { value: 'FAILED', label: isMy ? 'မအောင်မြင်ပါ' : 'Failed' },
+    { value: 'ALL', label: isMy ? 'ALL (အခြေအနေ အားလုံး)' : 'ALL' },
+    { value: 'PENDING', label: isMy ? 'PENDING (ဆိုင်းငံ့)' : 'PENDING' },
+    { value: 'PROCESSING', label: isMy ? 'PROCESSING (လုပ်ဆောင်ဆဲ)' : 'PROCESSING' },
+    { value: 'COMPLETED', label: isMy ? 'COMPLETED (အောင်မြင်သည်)' : 'COMPLETED' },
+    { value: 'FAILED', label: isMy ? 'FAILED (မအောင်မြင်ပါ)' : 'FAILED' },
   ]
 
   const handleReportTypeChange = (type: 'sales-ledger' | 'settlements') => {
