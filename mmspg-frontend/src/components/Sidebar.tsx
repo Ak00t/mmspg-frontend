@@ -72,6 +72,7 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
       { to: `${basePath}/mcc-configuration`, icon: Settings, label: t('nav.mccManagement') },
       { to: `${basePath}/fee-configuration`, icon: Percent, label: t('nav.feeConfiguration') },
       { to: `${basePath}/terminals`, icon: CreditCard, label: t('nav.terminals') },
+      { to: `${basePath}/reports`, icon: FileText, label: t('nav.reports') },
     ];
 
     if (userRole === 'ADMIN') {
