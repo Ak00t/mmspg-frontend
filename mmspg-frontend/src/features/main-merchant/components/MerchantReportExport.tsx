@@ -8,6 +8,7 @@ import {
   Filter,
   CheckCircle2,
   AlertCircle,
+  Building2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -192,6 +193,17 @@ export function MerchantReportExport() {
           </select>
         </div>
       </div>
+
+      {reportType === 'sales-ledger' && (
+        <div className="mt-4 p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300">
+          <Building2 className="h-4 w-4 shrink-0 text-indigo-500" />
+          <span>
+            {isMy
+              ? 'အရောင်းစာရင်း အစီရင်ခံစာများတွင် အရောင်းအဝယ်တစ်ခုချင်းစီ၏ မူရင်း Branch Name၊ Branch Code၊ Terminal Code နှင့် Terminal Type အချက်အလက်များ အပြည့်အစုံ ပါဝင်ပါသည်။'
+              : 'Sales Ledger statements include transaction origin details: Branch Name, Branch Code, Terminal Code, and Terminal Type.'}
+          </span>
+        </div>
+      )}
 
       {/* Export Action Buttons */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-700 pt-5">

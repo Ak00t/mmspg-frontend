@@ -1,9 +1,18 @@
+export type BranchSalesSummary = {
+  branchId: string
+  branchName: string
+  branchCode: string
+  transactionCount: number
+  totalVolume: number
+}
+
 export type DashboardSummary = {
   todayGrossSales: number
   totalApiTransactionsToday: number
   availableSettlementBalance: number
   pendingSettlementsCount: number
   transactionsByStatus: Record<string, number>
+  branchSales?: BranchSalesSummary[]
 }
 
 export const emptyDashboardSummary: DashboardSummary = {
@@ -12,6 +21,7 @@ export const emptyDashboardSummary: DashboardSummary = {
   availableSettlementBalance: 0,
   pendingSettlementsCount: 0,
   transactionsByStatus: {},
+  branchSales: [],
 }
 
 export type MerchantProfile = {
@@ -36,6 +46,10 @@ export type RecentTransaction = {
   currency: string
   status: string
   initiatedAt: string
+  branchName?: string | null
+  branchCode?: string | null
+  terminalCode?: string | null
+  terminalType?: string | null
 }
 
 export type WebhookConfig = {

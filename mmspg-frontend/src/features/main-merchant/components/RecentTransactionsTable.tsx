@@ -85,6 +85,7 @@ export function RecentTransactionsTable({ transactions, loading }: Props) {
           <thead className="bg-slate-50/75 dark:bg-slate-900 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
             <tr>
               <th className="px-6 py-3">{isMy ? 'အော်ဒါ / လွှဲပြောင်းမှု' : 'Order / Ref'}</th>
+              <th className="px-6 py-3">{isMy ? 'ဆိုင်ခွဲ / စက်' : 'Branch / Terminal'}</th>
               <th className="px-6 py-3">{isMy ? 'ငွေပမာဏ' : 'Amount'}</th>
               <th className="px-6 py-3">{isMy ? 'အခြေအနေ' : 'Status'}</th>
               <th className="px-6 py-3 text-right">{isMy ? 'အချိန်' : 'Initiated At'}</th>
@@ -93,14 +94,14 @@ export function RecentTransactionsTable({ transactions, loading }: Props) {
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {loading ? (
               <tr>
-                <td colSpan={4} className="py-12 text-center text-sm text-slate-400">
+                <td colSpan={5} className="py-12 text-center text-sm text-slate-400">
                   <div className="inline-block size-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent mb-2" />
                   <p>{isMy ? 'ဒေတာများ ရယူနေပါသည်...' : 'Loading transactions...'}</p>
                 </td>
               </tr>
             ) : transactions.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-12 text-center text-sm text-slate-400">
+                <td colSpan={5} className="py-12 text-center text-sm text-slate-400">
                   <div className="mx-auto mb-2 grid size-10 place-items-center rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400">
                     <ArrowUpRight className="size-5" />
                   </div>
@@ -118,6 +119,16 @@ export function RecentTransactionsTable({ transactions, loading }: Props) {
                   <td className="px-6 py-4">
                     <div className="font-medium text-slate-900 dark:text-white">{tx.orderId || (isMy ? 'တိုက်ရိုက် ငွေချေမှု' : 'Direct Payment')}</div>
                     <div className="text-xs font-mono text-slate-400">{tx.transactionReference}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium text-slate-800 dark:text-slate-200 text-xs">
+                        {tx.branchName || (isMy ? 'ပင်မဆိုင်ခွဲ' : 'Main Branch')}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {tx.terminalCode ? `${tx.terminalCode} (${tx.terminalType || 'API'})` : (tx.branchCode || '-')}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="font-semibold text-slate-900 dark:text-white">{formatMoney(tx.amount)}</span>

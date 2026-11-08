@@ -427,9 +427,9 @@ export default function Header({ isSidebarOpen = true, onToggleSidebar }: Header
                     </button>
                   )}
                   {notifications.length > 0 && (
-                    <button onClick={handleClearAllNotifications} className="text-xs text-slate-400 hover:text-rose-600 font-medium flex items-center gap-1 cursor-pointer" title="Clear all">
+                    <button onClick={handleClearAllNotifications} className="text-xs text-slate-400 hover:text-rose-600 font-medium flex items-center gap-1 cursor-pointer" title={t('notifications.dismissAll', 'Clear all')}>
                       <Trash2 className="h-3.5 w-3.5" />
-                      {t('common.clear') || 'Clear'}
+                      {t('common.clear', 'Clear')}
                     </button>
                   )}
                 </div>

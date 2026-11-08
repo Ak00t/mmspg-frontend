@@ -362,6 +362,64 @@ export default function Dashboard() {
         </section>
       </div>
 
+      {/* Branch Sales Performance */}
+      {summary.branchSales && summary.branchSales.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800 p-6 shadow-xs">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                <Building2 className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                  {isMy ? 'ဆိုင်ခွဲအလိုက် အရောင်းစွမ်းဆောင်ရည်' : 'Sales Performance by Branch'}
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isMy ? 'ရွေးချယ်ထားသော ကာလအတွင်း ဆိုင်ခွဲတစ်ခုချင်းစီ၏ အရောင်းပမာဏ' : 'Gross transaction volume breakdown across your merchant branches'}
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+              {summary.branchSales.length} {isMy ? 'ဆိုင်ခွဲ' : 'Branches'}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {summary.branchSales.map((branch) => {
+              const maxVol = Math.max(...summary.branchSales!.map((b) => b.totalVolume), 1)
+              const percent = Math.min(Math.round((branch.totalVolume / maxVol) * 100), 100)
+              return (
+                <div key={branch.branchId || branch.branchCode} className="p-4 rounded-xl border border-slate-100 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-850 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-semibold text-slate-900 dark:text-white text-sm">
+                        {branch.branchName}
+                      </span>
+                      <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                        {branch.branchCode}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                      {formatMoney(branch.totalVolume)}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/40">
+                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
+                      <span>{isMy ? 'အရောင်းအကြိမ်ရေ' : 'Transactions'}</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{branch.transactionCount.toLocaleString()} txns</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-indigo-600 h-1.5 rounded-full transition-all duration-500" style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Recent Transactions Table */}
       <RecentTransactionsTable
         transactions={recentTransactions}

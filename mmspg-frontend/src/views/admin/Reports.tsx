@@ -267,6 +267,17 @@ export default function AdminReports() {
           </div>
         </div>
 
+        {reportType === 'sales-ledger' && (
+          <div className="mt-4 p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+            <Building2 className="h-4 w-4 shrink-0 text-blue-500" />
+            <span>
+              {isMy
+                ? 'Sales Ledger အစီရင်ခံစာများတွင် Transaction တစ်ခုချင်းစီ၏ မူရင်း Branch Name၊ Branch Code၊ Terminal Code နှင့် Terminal Type အချက်အလက်များ အလိုအလျောက် ပါဝင်ပါသည်။'
+                : 'Sales Ledger statements include transaction origin details: Branch Name, Branch Code, Terminal Code, and Terminal Type.'}
+            </span>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-slate-100 dark:border-slate-700 pt-5">
           <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mr-2">

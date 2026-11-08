@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Edit, Trash2, Power, Shield, X, AlertCircle } from 'lucide-react';
+import { Search, Plus, Edit, Power, Shield, X, AlertCircle } from 'lucide-react';
 import {
   getStaffUsers,
   createStaffUser,
   updateStaffUser,
-  deleteStaffUser,
   updateStaffUserStatus
 } from '../../services/adminManagementApi';
 
@@ -17,7 +16,8 @@ interface StaffUser {
   email: string;
   role: string;
   status: 'ACTIVE' | 'DISABLED';
-  lastLoginAt: string | null; 
+  lastLoginAt: string | null;
+  last_login_at?: string | null;
   createdAt?: string;
 }
 
@@ -183,21 +183,13 @@ export default function StaffUsers() {
     }
   };
 
-  const handleDeleteClick = async (id: string) => {
-    if (!window.confirm("Are you sure you want to permanently delete this user?")) return;
-    
-    try {
-      await deleteStaffUser(id);
-      setUsers(users.filter(u => u.id !== id));
-      window.dispatchEvent(new Event('refreshNotifications'));
-      alert("User deleted successfully!");
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      alert("Failed to delete staff user. Please try again.");
-    }
-  };
+  const currentUserId = localStorage.getItem('userId');
 
-  const toggleStatus = async (id: string) => {
+const toggleStatus = async (id: string) => {
+    if (id === currentUserId) {
+      alert('You cannot change your own status.');
+      return;
+    }
     if (!window.confirm("Are you sure you want to change this user's status?")) return;
 
     try {
@@ -296,26 +288,25 @@ export default function StaffUsers() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                      {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never'}
+                      {(user.lastLoginAt || user.last_login_at) ? new Date(user.lastLoginAt || user.last_login_at!).toLocaleString() : 'Never'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <button 
-                          onClick={() => toggleStatus(user.id)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            user.status === 'ACTIVE'
-                              ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30'
-                              : 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30'
-                          }`}
-                          title={user.status === 'ACTIVE' ? "Disable User" : "Enable User"}
-                        >
-                          <Power className="h-4 w-4" />
-                        </button>
+                        {user.id !== currentUserId && (
+  <button
+    onClick={() => toggleStatus(user.id)}
+    className={`p-1.5 rounded-lg transition-colors ${
+      user.status === 'ACTIVE'
+        ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30'
+        : 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30'
+    }`}
+    title={user.status === 'ACTIVE' ? "Disable User" : "Enable User"}
+  >
+    <Power className="h-4 w-4" />
+  </button>
+)}
                         <button onClick={() => openEditModal(user)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title={t('common.edit')}>
                           <Edit className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => handleDeleteClick(user.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" title={t('common.delete')}>
-                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

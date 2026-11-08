@@ -18,7 +18,7 @@ import {
   ChevronRight,
   Activity
 } from 'lucide-react';
-import { getAdminDashboardSummary, type RecentMerchantRequestDto } from '../../services/adminDashboardApi';
+import { getAdminDashboardSummary, type RecentMerchantRequestDto, type PlatformLiveTransactionDto } from '../../services/adminDashboardApi';
 
 interface DashboardData {
   pendingApprovals: number;
@@ -26,6 +26,7 @@ interface DashboardData {
   activeGateways: number;
   internalStaff: number;
   recentRequests: RecentMerchantRequestDto[];
+  recentTransactions: PlatformLiveTransactionDto[];
 }
 
 export default function AdminDashboard() {
@@ -54,7 +55,8 @@ export default function AdminDashboard() {
         totalVolume: formattedVolume,
         activeGateways: Number(summary.activeGateways) || 0,
         internalStaff: Number(summary.internalStaff) || 0,
-        recentRequests: summary.recentMerchantRequests || []
+        recentRequests: summary.recentMerchantRequests || [],
+        recentTransactions: summary.recentTransactions || [],
       });
     } catch (err: any) {
       console.error("Error fetching admin dashboard summary:", err);
@@ -101,7 +103,8 @@ export default function AdminDashboard() {
     totalVolume: "MMK 0",
     activeGateways: 0,
     internalStaff: 0,
-    recentRequests: []
+    recentRequests: [],
+    recentTransactions: []
   };
 
   const statusClass = (status: string) => {
@@ -111,6 +114,20 @@ export default function AdminDashboard() {
       case 'APPROVED': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800';
       case 'REJECTED': return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300 border-rose-200 dark:border-rose-800';
       default: return 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+    }
+  };
+
+  const txnStatusBadge = (status: string) => {
+    switch ((status || '').toUpperCase()) {
+      case 'COMPLETED':
+        return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+      case 'INITIATED':
+      case 'PENDING_AUTHORIZATION':
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+      case 'FAILED':
+        return 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+      default:
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-850 dark:text-slate-300 border-slate-200 dark:border-slate-700';
     }
   };
 
@@ -533,6 +550,105 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Live Platform Transactions Feed with Origin Details (Branch & Terminal) */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-lg">
+              <Activity className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Live Platform Transactions
+                </h2>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Real-time
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Latest transactions across all merchants, branches, and POS/API terminals
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate(`${basePath}/reports`)}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 cursor-pointer"
+          >
+            <span>View Full Ledger Reports</span>
+            <ArrowRight className="h-3 w-3" />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase tracking-wider font-semibold text-[11px]">
+              <tr>
+                <th className="px-5 py-3 text-left">Time</th>
+                <th className="px-5 py-3 text-left">Merchant</th>
+                <th className="px-5 py-3 text-left">Branch (Origin)</th>
+                <th className="px-5 py-3 text-left">Terminal (Device / API)</th>
+                <th className="px-5 py-3 text-left">Order / Reference</th>
+                <th className="px-5 py-3 text-right">Amount</th>
+                <th className="px-5 py-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+              {data.recentTransactions && data.recentTransactions.length > 0 ? (
+                data.recentTransactions.map((tx) => (
+                  <tr key={tx.transactionReference} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                    <td className="px-5 py-3.5 whitespace-nowrap text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                      {tx.createdAt ? new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}
+                      <div className="text-[10px] text-slate-400">
+                        {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : ''}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <div className="font-semibold text-slate-900 dark:text-white">{tx.merchantName}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{tx.merchantCode}</div>
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <div className="font-medium text-slate-800 dark:text-slate-200">{tx.branchName}</div>
+                      <div className="text-[10px] font-mono text-slate-400">{tx.branchCode}</div>
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                        {tx.terminalCode}
+                        <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 font-sans">
+                          {tx.terminalType === 'PHYSICAL_POS' ? 'POS' : 'API'}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <div className="font-mono text-slate-900 dark:text-white">{tx.orderId}</div>
+                      <div className="text-[10px] font-mono text-slate-400">{tx.transactionReference}</div>
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap text-right font-bold text-slate-900 dark:text-white">
+                      {tx.currency} {Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap text-center">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${txnStatusBadge(tx.status)}`}>
+                        {tx.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-slate-400">
+                    <p className="font-medium text-slate-700 dark:text-slate-300">No transactions recorded yet</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Platform payment activities will stream here live.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

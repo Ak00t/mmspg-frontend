@@ -281,21 +281,9 @@ export default function Login() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {t('auth.password')} *
-              </label>
-              <a 
-                href="#" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('/forgot-password');
-                }}
-                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-              >
-                {t('auth.forgotPassword')}
-              </a>
-            </div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              {t('auth.password')} *
+            </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               <input
@@ -315,6 +303,18 @@ export default function Login() {
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
+            </div>
+            <div className="flex justify-end mt-2">
+              <a 
+                href="#" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/forgot-password');
+                }}
+                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+              >
+                {t('auth.forgotPassword')}
+              </a>
             </div>
           </div>
 

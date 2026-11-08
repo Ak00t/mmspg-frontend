@@ -8,12 +8,28 @@ export interface RecentMerchantRequestDto {
   status: string
 }
 
+export interface PlatformLiveTransactionDto {
+  transactionReference: string
+  orderId: string
+  merchantName: string
+  merchantCode: string
+  branchName: string
+  branchCode: string
+  terminalCode: string
+  terminalType: string
+  amount: number
+  currency: string
+  status: string
+  createdAt: string
+}
+
 export interface DashboardSummaryResponse {
   totalPendingApprovals: number
   totalVolumeToday: number | string
   activeGateways: number
   internalStaff: number
   recentMerchantRequests: RecentMerchantRequestDto[]
+  recentTransactions?: PlatformLiveTransactionDto[]
 }
 
 export async function getAdminDashboardSummary(): Promise<DashboardSummaryResponse> {

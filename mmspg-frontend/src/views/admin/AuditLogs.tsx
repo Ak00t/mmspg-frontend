@@ -68,7 +68,10 @@ export default function AuditLogs() {
   }, [menuFilter, actionFilter, statusFilter, startDate, endDate]);
 
   useEffect(() => {
-    loadLogs(0);
+    const timer = setTimeout(() => {
+      loadLogs(0);
+    }, 200);
+    return () => clearTimeout(timer);
   }, [loadLogs]);
 
   const handleApplyFilter = (e: React.FormEvent) => {
@@ -151,7 +154,7 @@ export default function AuditLogs() {
             className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-650 rounded-lg border border-slate-300 dark:border-slate-600 transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-blue-500' : ''}`} />
-            {t('common.refresh') || 'Refresh'}
+            {t('common.refresh', 'Refresh')}
           </button>
         </div>
       </div>
@@ -166,11 +169,29 @@ export default function AuditLogs() {
               </label>
               <input
                 type="text"
+                list="menu-suggestions"
                 placeholder="e.g. Merchant, Branch"
                 value={menuFilter}
                 onChange={(e) => setMenuFilter(e.target.value)}
                 className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
               />
+              <datalist id="menu-suggestions">
+                <option value="Admin Authentication" />
+                <option value="Merchant Authentication" />
+                <option value="Merchant Management" />
+                <option value="Merchant Approval" />
+                <option value="Branch Management" />
+                <option value="Terminal Management" />
+                <option value="Staff Management" />
+                <option value="Webhook Configuration" />
+                <option value="Webhook Delivery" />
+                <option value="Fee Configuration" />
+                <option value="API Credentials" />
+                <option value="Payments" />
+                <option value="Merchant Ledger" />
+                <option value="Settlement" />
+                <option value="MCC Configuration" />
+              </datalist>
             </div>
 
             <div>
@@ -179,11 +200,28 @@ export default function AuditLogs() {
               </label>
               <input
                 type="text"
+                list="action-suggestions"
                 placeholder="e.g. APPROVE, CREATE"
                 value={actionFilter}
                 onChange={(e) => setActionFilter(e.target.value)}
                 className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
               />
+              <datalist id="action-suggestions">
+                <option value="LOGIN" />
+                <option value="CREATE" />
+                <option value="UPDATE" />
+                <option value="DELETE" />
+                <option value="APPROVE" />
+                <option value="REJECT" />
+                <option value="TEST" />
+                <option value="BAN" />
+                <option value="CANCEL_BAN" />
+                <option value="PROVISION" />
+                <option value="UPDATE_STATUS" />
+                <option value="REGENERATE_SECRET" />
+                <option value="REVOKE" />
+                <option value="RESET_PASSWORD" />
+              </datalist>
             </div>
 
             <div>
@@ -276,59 +314,50 @@ export default function AuditLogs() {
             <table className="w-full text-left text-sm border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50/70 dark:bg-slate-900/50">
-                  <th className="px-5 py-3.5">Timestamp</th>
-                  <th className="px-5 py-3.5">Operator (Actor)</th>
-                  <th className="px-5 py-3.5">Module / Menu</th>
-                  <th className="px-5 py-3.5">Action</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5">Target</th>
-                  <th className="px-5 py-3.5">IP Address</th>
-                  <th className="px-5 py-3.5 text-right">View</th>
+                  <th className="px-4 py-3">Timestamp</th>
+                  <th className="px-4 py-3">Operator</th>
+                  <th className="px-4 py-3">Module / Menu</th>
+                  <th className="px-4 py-3 text-center">Action</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3">IP Address</th>
+                  <th className="px-4 py-3 text-right">Detail</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 font-sans">
                 {logs.map((log) => (
                   <tr key={log.auditId} className="hover:bg-slate-50/70 dark:hover:bg-slate-750 transition-colors">
-                    <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                    <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="font-medium text-slate-900 dark:text-white text-xs">
                         {log.roleName === 'UNKNOWN' ? 'SYSTEM' : (log.roleName || 'SYSTEM')}
                       </div>
-                      <div className="text-[11px] font-mono text-slate-400 truncate max-w-[140px]">
+                      {/* <div className="text-[11px] font-mono text-slate-400 truncate max-w-[140px]">
                         {log.actorId || 'SYSTEM'}
-                      </div>
+                      </div> */}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200 text-xs">
+                    <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200 text-xs">
                       {log.menuName}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap text-center">
                       {getActionBadge(log.action)}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap text-center">
                       {getStatusBadge(log.status)}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-                      {log.targetType ? (
-                        <span>
-                          <span className="text-slate-400 font-mono text-[11px] mr-1">{log.targetType}:</span>
-                          <span className="font-mono text-xs">{log.targetId || '-'}</span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 italic">None</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap font-mono text-xs text-slate-500 dark:text-slate-400">
+                    <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-slate-500 dark:text-slate-400">
                       {log.ipAddress || '127.0.0.1'}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap text-right">
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
                       <button
+                        type="button"
                         onClick={() => setSelectedLog(log)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50 rounded-lg transition-colors cursor-pointer"
                         title="View Details"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Detail</span>
                       </button>
                     </td>
                   </tr>
@@ -442,11 +471,10 @@ export default function AuditLogs() {
                 </div>
                 <div>
                   <span className="font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">Source Type</span>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    selectedLog.sourceType === 'FRONTEND_UI'
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                      : 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                  }`}>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${selectedLog.sourceType === 'FRONTEND_UI'
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                    : 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                    }`}>
                     {selectedLog.sourceType === 'FRONTEND_UI' ? 'Portal UI' : 'REST API'} ({selectedLog.sourceType})
                   </span>
                 </div>

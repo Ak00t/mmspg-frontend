@@ -19,6 +19,8 @@
     "no": "No",
     "confirm": "Confirm",
     "dismiss": "Dismiss",
+    "refresh": "Refresh",
+    "clear": "Clear",
     "active": "Active",
     "inactive": "Inactive",
     "pending": "Pending",
