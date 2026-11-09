@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, Edit, ShieldAlert, X, AlertTriangle, RefreshCw, AlertCircle } from 'lucide-react';
+import { Search, Plus, Edit, X, AlertCircle, Ban, RotateCcw } from 'lucide-react';
 import {
   getTerminals,
   getMerchants,
@@ -37,6 +37,7 @@ export default function AdminTerminals() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
+  const [isCancelBanModalOpen, setIsCancelBanModalOpen] = useState(false);
 
   // Data States
   const [newTerminal, setNewTerminal] = useState({
@@ -52,6 +53,7 @@ export default function AdminTerminals() {
 
   const [editingTerminal, setEditingTerminal] = useState<Terminal | null>(null);
   const [suspendingTerminal, setSuspendingTerminal] = useState<Terminal | null>(null);
+  const [cancellingTerminal, setCancellingTerminal] = useState<Terminal | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
 
   useEffect(() => {
@@ -193,25 +195,29 @@ export default function AdminTerminals() {
       setSuspendReason('');
       
       window.dispatchEvent(new Event('refreshNotifications'));
-      alert('Terminal suspended successfully!');
+      alert('Terminal banned successfully! Status updated to Banned (SUSPENDED) in database.');
     } catch (error: any) {
       console.error('Error suspending terminal:', error);
       alert('Failed to suspend terminal.');
     }
   };
 
-  const handleReactivate = async (id: string) => {
-    if (!window.confirm("Are you sure you want to reactivate this terminal?")) return;
+  const handleCancelBanConfirm = async () => {
+    if (!cancellingTerminal) return;
     try {
-      await reactivateTerminal(id);
-      setTerminals(terminals.map(t => t.terminalId === id ? { ...t, status: 'ONLINE' } : t));
+      await reactivateTerminal(cancellingTerminal.terminalId);
+      setTerminals(terminals.map(t => t.terminalId === cancellingTerminal.terminalId ? { ...t, status: 'ONLINE' } : t));
+      setIsCancelBanModalOpen(false);
+      setCancellingTerminal(null);
       window.dispatchEvent(new Event('refreshNotifications'));
-      alert('Terminal reactivated successfully!');
+      alert('Terminal ban cancelled successfully! Status restored to Active (ONLINE) in database.');
     } catch (error: any) {
-      console.error('Error reactivating terminal:', error);
-      alert('Failed to reactivate terminal.');
+      console.error('Error cancelling terminal ban:', error);
+      alert('Failed to cancel terminal ban.');
     }
   };
+
+
 
   const filteredTerminals = terminals.filter(terminal => 
     (terminal.terminalCode && terminal.terminalCode.toLowerCase().includes(searchTerm.toLowerCase())) || 
@@ -299,7 +305,7 @@ export default function AdminTerminals() {
                           ? 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-300'
                           : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                       }`}>
-                        {terminal.status === 'ONLINE' || terminal.status === 'ACTIVE' ? t('common.active') : terminal.status}
+                        {terminal.status === 'ONLINE' || terminal.status === 'ACTIVE' ? t('common.active') : terminal.status === 'SUSPENDED' ? 'Banned' : terminal.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
@@ -309,32 +315,65 @@ export default function AdminTerminals() {
                       {isAuditor ? (
                         <span className="text-xs text-slate-400 italic">View Only</span>
                       ) : (
-                        <div className="flex justify-end space-x-2">
+                        <div className="flex justify-end items-center space-x-1.5">
+                          {/* Ban Button */}
                           {terminal.status === 'SUSPENDED' ? (
                             <button 
-                              onClick={() => handleReactivate(terminal.terminalId)}
-                              className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title={t('merchants.reactivate')}>
-                              <RefreshCw className="h-4 w-4" />
+                              type="button"
+                              disabled
+                              className="p-1.5 text-slate-300 dark:text-slate-600 cursor-not-allowed rounded-lg" 
+                              title="Terminal is already Banned">
+                              <Ban className="h-4 w-4" />
                             </button>
                           ) : (
                             <button 
+                              type="button"
                               onClick={() => {
                                 setSuspendingTerminal(terminal);
                                 setIsSuspendModalOpen(true);
                               }}
-                              className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" title={t('merchants.suspend')}>
-                              <ShieldAlert className="h-4 w-4" />
+                              className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" 
+                              title="Ban Terminal">
+                              <Ban className="h-4 w-4" />
                             </button>
                           )}
+
+                          {/* Cancel Ban Button */}
+                          {terminal.status === 'SUSPENDED' ? (
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                setCancellingTerminal(terminal);
+                                setIsCancelBanModalOpen(true);
+                              }}
+                              className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors ring-1 ring-emerald-500/30" 
+                              title="Cancel Ban (Reactivate Terminal)">
+                              <RotateCcw className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button 
+                              type="button"
+                              disabled
+                              className="p-1.5 text-slate-300 dark:text-slate-600 cursor-not-allowed rounded-lg" 
+                              title="Cancel Ban (Terminal is currently Active)">
+                              <RotateCcw className="h-4 w-4" />
+                            </button>
+                          )}
+
+
+
                           
-                          <button 
-                            onClick={() => {
-                              setEditingTerminal({...terminal});
-                              setIsEditModalOpen(true);
-                            }}
-                            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title={t('common.edit')}>
-                            <Edit className="h-4 w-4" />
-                          </button>
+                          {/* Edit Button (ADMIN only) */}
+                          {userRole === 'ADMIN' && (
+                            <button 
+                              onClick={() => {
+                                setEditingTerminal({...terminal});
+                                setIsEditModalOpen(true);
+                              }}
+                              className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors" title={t('common.edit')}>
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -596,11 +635,11 @@ export default function AdminTerminals() {
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden p-6 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center space-x-2 mb-3">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
-              <h2 className="text-lg font-bold text-slate-800 dark:text-white">{t('merchants.suspend')}</h2>
+              <Ban className="h-6 w-6 text-red-600" />
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Ban Terminal</h2>
             </div>
             <div className="pb-2 text-sm text-slate-600 dark:text-slate-300">
-              Are you sure you want to suspend this terminal? It will no longer be able to process transactions.
+              Are you sure you want to ban terminal <span className="font-semibold text-slate-900 dark:text-white">{suspendingTerminal.terminalCode || suspendingTerminal.terminalName}</span>? It will no longer be able to process transactions and its status will be saved as <span className="font-semibold text-red-600">BANNED (SUSPENDED)</span>.
             </div>
             <div className="pt-2 space-y-4 mb-4">
               <div>
@@ -623,9 +662,43 @@ export default function AdminTerminals() {
               </button>
               <button 
                 onClick={handleSuspendSubmit}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center gap-1.5"
               >
-                {t('merchants.suspend')}
+                <Ban className="h-4 w-4" />
+                Ban Terminal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Ban Modal */}
+      {isCancelBanModalOpen && cancellingTerminal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden p-6 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center space-x-2 mb-3">
+              <RotateCcw className="h-6 w-6 text-emerald-600" />
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Cancel Terminal Ban</h2>
+            </div>
+            <div className="pb-4 text-sm text-slate-600 dark:text-slate-300">
+              Are you sure you want to cancel the ban for terminal <span className="font-semibold text-slate-900 dark:text-white">{cancellingTerminal.terminalCode || cancellingTerminal.terminalName}</span>? Its ban restriction will be lifted, and its status will be restored to <span className="font-semibold text-green-600">Active (ONLINE)</span> .
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button 
+                onClick={() => {
+                  setIsCancelBanModalOpen(false);
+                  setCancellingTerminal(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button 
+                onClick={handleCancelBanConfirm}
+                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Confirm Cancel Ban
               </button>
             </div>
           </div>

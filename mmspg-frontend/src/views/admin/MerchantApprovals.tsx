@@ -17,6 +17,7 @@ interface Merchant {
   regNumber: string;
   regDate: string;
   status: string;
+  rawCreatedAt?: number;
 }
 
 interface MccOption {
@@ -74,8 +75,10 @@ export default function MerchantApprovals() {
           merchantName: m?.merchantName || m?.businessName || "Unknown",
           regNumber: m?.merchantCode || m?.businessRegistrationNo || m?.registrationNumber || "N/A",
           regDate: m?.createdAt ? new Date(m.createdAt).toLocaleDateString() : "N/A",
-          status: (m?.status || "PENDING").toUpperCase()
-        }));
+          status: (m?.status || "PENDING").toUpperCase(),
+          rawCreatedAt: m?.createdAt ? new Date(m.createdAt).getTime() : 0
+        }))
+        .sort((a, b) => (b.rawCreatedAt || 0) - (a.rawCreatedAt || 0));
 
       setMerchants(mappedMerchants);
     } catch (error) {
@@ -394,7 +397,7 @@ export default function MerchantApprovals() {
                     {getStatusBadge(merchant.status)}
                   </td>
                   <td className="px-6 py-4 text-right space-x-2 flex justify-end items-center">
-                    {isAuditor ? (
+                    {isAuditor || userRole === 'SUPPORT' ? (
                       <span className="text-xs text-slate-400 italic">View Only</span>
                     ) : (
                       <>

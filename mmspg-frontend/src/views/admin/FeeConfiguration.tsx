@@ -128,7 +128,12 @@ export default function FeeConfiguration() {
       const feesList = Array.isArray(feesData) ? feesData : (feesData?.content || []);
       const merchantsList = Array.isArray(merchantsData) ? merchantsData : (merchantsData?.content || []);
 
-      setFeeConfigs(feesList);
+      const sortedFees = [...feesList].sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || a.effectiveFrom || 0).getTime();
+        const dateB = new Date(b.createdAt || b.effectiveFrom || 0).getTime();
+        return dateB - dateA;
+      });
+      setFeeConfigs(sortedFees);
       setMerchants(merchantsList);
     } catch (error) {
       console.error('Error loading fee configuration data:', error);
@@ -466,7 +471,7 @@ export default function FeeConfiguration() {
             {t('fees.calculatorTitle')}
           </button>
 
-          {!isAuditor && (userRole === 'ADMIN' || userRole === 'SUPPORT') && (
+          {!isAuditor && userRole === 'ADMIN' && (
             <button
               onClick={handleOpenAddModal}
               className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
@@ -705,7 +710,7 @@ export default function FeeConfiguration() {
                             <Calculator className="h-4 w-4" />
                           </button>
 
-                          {!isAuditor && (userRole === 'ADMIN' || userRole === 'SUPPORT') && (
+                          {!isAuditor && userRole === 'ADMIN' && (
                             <button
                               onClick={() => handleOpenEditModal(fee)}
                               className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"

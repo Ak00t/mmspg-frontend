@@ -54,7 +54,12 @@ export default function BranchManagement() {
     try {
       const data = await getBranches();
       const branchesList = Array.isArray(data) ? data : (data.content || []);
-      setBranches(branchesList);
+      const sortedBranches = [...branchesList].sort((a: any, b: any) => {
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
+      });
+      setBranches(sortedBranches);
     } catch (error) {
       console.error('Error fetching branches:', error);
     } finally {
@@ -272,7 +277,7 @@ export default function BranchManagement() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {isAuditor ? (
+                      {isAuditor || userRole === 'SUPPORT' ? (
                         <span className="text-xs text-slate-400 italic">View Only</span>
                       ) : (
                         <div className="flex justify-end space-x-2">
