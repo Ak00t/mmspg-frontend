@@ -52,6 +52,14 @@ export type RecentTransaction = {
   terminalType?: string | null
 }
 
+export type PaginatedTransactions = {
+  content: RecentTransaction[]
+  totalElements: number
+  totalPages: number
+  size: number
+  number: number
+}
+
 export type WebhookConfig = {
   webhookId: string
   merchantId: string

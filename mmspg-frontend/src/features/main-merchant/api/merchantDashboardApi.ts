@@ -1,5 +1,5 @@
 import { api } from '../../../services/api'
-import type { DashboardSummary, MerchantProfile, RecentTransaction } from '../types'
+import type { DashboardSummary, MerchantProfile, PaginatedTransactions, RecentTransaction } from '../types'
 
 function toApiDate(date: string) {
   const [year, month, day] = date.split('-')
@@ -18,9 +18,18 @@ export async function getMerchantProfile() {
   return response.data
 }
 
-export async function getRecentTransactions(limit = 10) {
-  const response = await api.get<RecentTransaction[]>('/api/v1/merchant/dashboard/recent-transactions', {
-    params: { limit },
+export async function getRecentTransactions(page = 0, size = 10): Promise<PaginatedTransactions> {
+  const response = await api.get<PaginatedTransactions | RecentTransaction[]>('/api/v1/merchant/dashboard/recent-transactions', {
+    params: { page, size },
   })
+  if (Array.isArray(response.data)) {
+    return {
+      content: response.data,
+      totalElements: response.data.length,
+      totalPages: 1,
+      size: response.data.length,
+      number: 0,
+    }
+  }
   return response.data
 }

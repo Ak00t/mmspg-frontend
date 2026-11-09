@@ -1,10 +1,14 @@
 import type { RecentTransaction } from '../types'
-import { ArrowUpRight, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, ChevronLeft, ChevronRight, Clock, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 type Props = {
   transactions: RecentTransaction[]
   loading?: boolean
+  currentPage?: number
+  totalPages?: number
+  totalElements?: number
+  onPageChange?: (page: number) => void
 }
 
 function formatMoney(value: number) {
@@ -60,7 +64,14 @@ function StatusBadge({ status, isMy }: { status: string; isMy: boolean }) {
   }
 }
 
-export function RecentTransactionsTable({ transactions, loading }: Props) {
+export function RecentTransactionsTable({
+  transactions,
+  loading,
+  currentPage = 0,
+  totalPages = 1,
+  totalElements,
+  onPageChange,
+}: Props) {
   const { i18n } = useTranslation();
   const isMy = i18n.language === 'my';
 
@@ -76,7 +87,7 @@ export function RecentTransactionsTable({ transactions, loading }: Props) {
           </p>
         </div>
         <span className="rounded-full bg-indigo-50 dark:bg-indigo-900/40 px-3 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
-          {transactions.length} {isMy ? 'ခု' : 'latest'}
+          {totalElements !== undefined ? totalElements : transactions.length} {isMy ? 'ခု' : (totalPages > 1 ? 'total' : 'latest')}
         </span>
       </div>
 
@@ -145,6 +156,35 @@ export function RecentTransactionsTable({ transactions, loading }: Props) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-700 px-6 py-3.5 bg-slate-50/50 dark:bg-slate-900/40">
+          <button
+            onClick={() => onPageChange?.(currentPage - 1)}
+            disabled={currentPage === 0 || loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-xs transition hover:bg-slate-50 dark:hover:bg-slate-750 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronLeft className="size-4" />
+            {isMy ? 'ရှေ့သို့' : 'Previous'}
+          </button>
+
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {isMy
+              ? `စာမျက်နှာ ${currentPage + 1} / ${totalPages} (စုစုပေါင်း ${totalElements !== undefined ? totalElements : transactions.length} ခု)`
+              : `Page ${currentPage + 1} of ${totalPages} (${totalElements !== undefined ? totalElements : transactions.length} total)`}
+          </span>
+
+          <button
+            onClick={() => onPageChange?.(currentPage + 1)}
+            disabled={currentPage + 1 >= totalPages || loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-xs transition hover:bg-slate-50 dark:hover:bg-slate-750 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isMy ? 'နောက်သို့' : 'Next'}
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+      )}
     </section>
   )
 }

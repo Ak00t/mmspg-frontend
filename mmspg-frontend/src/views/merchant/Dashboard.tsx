@@ -53,6 +53,9 @@ export default function Dashboard() {
   const [summary, setSummary] = useState<DashboardSummary>(emptyDashboardSummary)
   const [profile, setProfile] = useState<MerchantProfile | null>(null)
   const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([])
+  const [txPage, setTxPage] = useState(0)
+  const [txTotalPages, setTxTotalPages] = useState(1)
+  const [txTotalElements, setTxTotalElements] = useState(0)
 
   const [loadingSummary, setLoadingSummary] = useState(false)
   const [loadingTransactions, setLoadingTransactions] = useState(false)
@@ -87,19 +90,31 @@ export default function Dashboard() {
     }
   }
 
-  // Load merchant profile & recent transactions
-  const loadProfileAndTransactions = async () => {
+  // Load recent transactions with pagination
+  const loadTransactions = async (page = 0) => {
     setLoadingTransactions(true)
     try {
-      const [prof, txs] = await Promise.allSettled([
-        getMerchantProfile(),
-        getRecentTransactions(10),
-      ])
-      if (prof.status === 'fulfilled') setProfile(prof.value)
-      if (txs.status === 'fulfilled') setRecentTransactions(txs.value)
+      const data = await getRecentTransactions(page, 10)
+      setRecentTransactions(data.content)
+      setTxPage(data.number)
+      setTxTotalPages(data.totalPages)
+      setTxTotalElements(data.totalElements)
+    } catch (e) {
+      console.error('Failed to load transactions page', e)
     } finally {
       setLoadingTransactions(false)
     }
+  }
+
+  // Load merchant profile & initial transactions
+  const loadProfileAndTransactions = async () => {
+    try {
+      const prof = await getMerchantProfile()
+      setProfile(prof)
+    } catch (e) {
+      console.error('Failed to load merchant profile', e)
+    }
+    await loadTransactions(0)
   }
 
   // Auto-load on initial mount
@@ -424,6 +439,10 @@ export default function Dashboard() {
       <RecentTransactionsTable
         transactions={recentTransactions}
         loading={loadingTransactions}
+        currentPage={txPage}
+        totalPages={txTotalPages}
+        totalElements={txTotalElements}
+        onPageChange={(page) => void loadTransactions(page)}
       />
     </div>
   )
