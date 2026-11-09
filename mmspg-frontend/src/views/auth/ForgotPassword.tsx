@@ -18,7 +18,7 @@ export default function ForgotPassword() {
       await api.post('/api/v1/auth/forgot-password', { email: email.trim() });
       setIsSubmitted(true);
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'A network error occurred. Please try again.');
+      setError(err.response?.data?.message || err.response?.data?.error || err.message || 'A network error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -49,7 +49,7 @@ export default function ForgotPassword() {
                 <div className="text-sm space-y-1">
                   <p className="font-semibold text-emerald-900">Reset instructions sent</p>
                   <p className="text-emerald-700">
-                    If an account exists for <span className="font-medium text-emerald-900">{email}</span>, you will receive a password reset link shortly.
+                    A password reset code has been sent to <span className="font-medium text-emerald-900">{email}</span>. Please check your inbox.
                   </p>
                 </div>
               </div>
@@ -72,8 +72,15 @@ export default function ForgotPassword() {
               </button>
 
               <Link
-                to="/login"
+                to="/reset-password"
                 className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <span>Enter Reset Code</span>
+              </Link>
+
+              <Link
+                to="/login"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Login

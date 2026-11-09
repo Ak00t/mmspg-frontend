@@ -33,13 +33,13 @@ export default function MerchantApprovals() {
   const isAuditor = userRole === 'AUDITOR' || userRole.includes('AUDITOR');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
+
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
-  
+
   const [editName, setEditName] = useState('');
   const [editRegNum, setEditRegNum] = useState('');
   const [suspendReason, setSuspendReason] = useState('');
@@ -168,8 +168,8 @@ export default function MerchantApprovals() {
     }
 
     if (addFormData.phone && addFormData.phone.trim()) {
-      if (!/^[+0-9\s-]{6,20}$/.test(addFormData.phone.trim())) {
-        errors.phone = "Invalid phone number format (6-20 digits)";
+      if (!/^[+0-9\s-]{6,11}$/.test(addFormData.phone.trim())) {
+        errors.phone = "Invalid phone number format (6-11 digits)";
       }
     }
 
@@ -208,7 +208,7 @@ export default function MerchantApprovals() {
       await fetchRealMerchants();
       window.dispatchEvent(new Event('refreshNotifications'));
       alert("Merchant registered successfully!");
-      
+
     } catch (error: any) {
       console.error("Registration error:", error);
       const backendError = error.response?.data?.error || error.response?.data?.message || error.message || "Error registering merchant.";
@@ -229,9 +229,9 @@ export default function MerchantApprovals() {
     try {
       await updateMerchant(selectedMerchant.id, { businessName: editName, merchantCode: editRegNum });
 
-      setMerchants(prevMerchants => 
-        prevMerchants.map(m => 
-          m.id === selectedMerchant.id 
+      setMerchants(prevMerchants =>
+        prevMerchants.map(m =>
+          m.id === selectedMerchant.id
             ? { ...m, merchantName: editName, regNumber: editRegNum }
             : m
         )
@@ -251,8 +251,8 @@ export default function MerchantApprovals() {
     try {
       await updateMerchantStatus(selectedMerchant.id, 'SUSPENDED', suspendReason || 'Violation of terms');
 
-      setMerchants(prevMerchants => 
-        prevMerchants.map(m => 
+      setMerchants(prevMerchants =>
+        prevMerchants.map(m =>
           m.id === selectedMerchant.id ? { ...m, status: 'SUSPENDED' } : m
         )
       );
@@ -268,7 +268,7 @@ export default function MerchantApprovals() {
 
   const handleApprove = async (id: string) => {
     if (!window.confirm(t('merchants.confirmApprove'))) return;
-    
+
     try {
       await approveMerchant(id);
 
@@ -283,7 +283,7 @@ export default function MerchantApprovals() {
 
   const handleReject = async (id: string) => {
     const reason = window.prompt(t('merchants.promptRejectReason'));
-    if (reason === null) return; 
+    if (reason === null) return;
 
     try {
       await rejectMerchant(id, reason);
@@ -299,7 +299,7 @@ export default function MerchantApprovals() {
 
   const handleReactivate = async (id: string) => {
     if (!window.confirm(t('merchants.confirmReactivate'))) return;
-    
+
     try {
       await updateMerchantStatus(id, 'ACTIVE', 'Reactivated by Admin');
 
@@ -327,8 +327,8 @@ export default function MerchantApprovals() {
     }
   };
 
-  const filteredMerchants = merchants.filter(merchant => 
-    merchant.merchantName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredMerchants = merchants.filter(merchant =>
+    merchant.merchantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     merchant.regNumber.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -339,7 +339,7 @@ export default function MerchantApprovals() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">{t('merchants.title')}</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('merchants.subtitle')}</p>
         </div>
-        
+
         {userRole === 'ADMIN' && (
           <button onClick={openAddModal} className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
             <Plus className="h-4 w-4 mr-2" />
@@ -353,12 +353,12 @@ export default function MerchantApprovals() {
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-slate-400" />
           </div>
-          <input 
-            type="text" 
-            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm transition-colors" 
-            placeholder={t('merchants.searchPlaceholder')} 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm transition-colors"
+            placeholder={t('merchants.searchPlaceholder')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
@@ -446,7 +446,7 @@ export default function MerchantApprovals() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               {formError && (
                 <div className="mb-5 p-3.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm flex items-start gap-2.5">
@@ -460,19 +460,18 @@ export default function MerchantApprovals() {
                   <h3 className="font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2">Business Details</h3>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.businessName')} *</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Acme Corp" 
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Corp"
                       value={addFormData.businessName}
                       onChange={(e) => {
-                        setAddFormData({...addFormData, businessName: e.target.value});
+                        setAddFormData({ ...addFormData, businessName: e.target.value });
                         if (fieldErrors.businessName) setFieldErrors(prev => ({ ...prev, businessName: '' }));
                       }}
-                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
-                        fieldErrors.businessName 
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${fieldErrors.businessName
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                           : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
-                      }`} 
+                        }`}
                     />
                     {fieldErrors.businessName && (
                       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
@@ -486,30 +485,29 @@ export default function MerchantApprovals() {
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                       {t('merchants.merchantCode')} <span className="text-xs text-slate-400 font-normal">({t('common.autoGenerated', 'Auto-generated')})</span>
                     </label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       readOnly
-                      placeholder="Auto-generated (e.g. MC-000001)" 
+                      placeholder="Auto-generated (e.g. MC-000001)"
                       value={addFormData.merchantCode || "Auto-generated (e.g. MC-000001)"}
-                      className="w-full px-3 py-2 border rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-sm font-mono cursor-not-allowed border-slate-300 dark:border-slate-600 outline-none select-none" 
+                      className="w-full px-3 py-2 border rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-sm font-mono cursor-not-allowed border-slate-300 dark:border-slate-600 outline-none select-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.settlementAccount')} *</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. KBZ-0987654321" 
+                    <input
+                      type="text"
+                      placeholder="e.g. KBZ-0987654321"
                       value={addFormData.settlementAccountNo}
                       onChange={(e) => {
-                        setAddFormData({...addFormData, settlementAccountNo: e.target.value});
+                        setAddFormData({ ...addFormData, settlementAccountNo: e.target.value });
                         if (fieldErrors.settlementAccountNo) setFieldErrors(prev => ({ ...prev, settlementAccountNo: '' }));
                       }}
-                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
-                        fieldErrors.settlementAccountNo 
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${fieldErrors.settlementAccountNo
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                           : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
-                      }`} 
+                        }`}
                     />
                     {fieldErrors.settlementAccountNo && (
                       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
@@ -527,14 +525,13 @@ export default function MerchantApprovals() {
                       <select
                         value={addFormData.mccId}
                         onChange={(e) => {
-                          setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 1});
+                          setAddFormData({ ...addFormData, mccId: parseInt(e.target.value) || 1 });
                           if (fieldErrors.mccId) setFieldErrors(prev => ({ ...prev, mccId: '' }));
                         }}
-                        className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
-                          fieldErrors.mccId 
-                            ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                        className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${fieldErrors.mccId
+                            ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                             : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
-                        }`}
+                          }`}
                       >
                         {availableMccs.map(mcc => (
                           <option key={mcc.id} value={mcc.id}>
@@ -543,19 +540,18 @@ export default function MerchantApprovals() {
                         ))}
                       </select>
                     ) : (
-                      <input 
-                        type="number" 
-                        placeholder="e.g. 1" 
+                      <input
+                        type="number"
+                        placeholder="e.g. 1"
                         value={addFormData.mccId}
                         onChange={(e) => {
-                          setAddFormData({...addFormData, mccId: parseInt(e.target.value) || 1});
+                          setAddFormData({ ...addFormData, mccId: parseInt(e.target.value) || 1 });
                           if (fieldErrors.mccId) setFieldErrors(prev => ({ ...prev, mccId: '' }));
                         }}
-                        className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
-                          fieldErrors.mccId 
-                            ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                        className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${fieldErrors.mccId
+                            ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                             : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
-                        }`} 
+                          }`}
                       />
                     )}
                     {fieldErrors.mccId && (
@@ -571,30 +567,29 @@ export default function MerchantApprovals() {
                   <h3 className="font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2">Contact Details</h3>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.contactName')}</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. John Doe" 
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
                       value={addFormData.contactName}
-                      onChange={(e) => setAddFormData({...addFormData, contactName: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                      onChange={(e) => setAddFormData({ ...addFormData, contactName: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.email')} *</label>
-                    <input 
-                      type="email" 
-                      placeholder="e.g. contact@acme.com" 
+                    <input
+                      type="email"
+                      placeholder="e.g. contact@acme.com"
                       value={addFormData.email}
                       onChange={(e) => {
-                        setAddFormData({...addFormData, email: e.target.value});
+                        setAddFormData({ ...addFormData, email: e.target.value });
                         if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: '' }));
                       }}
-                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
-                        fieldErrors.email 
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${fieldErrors.email
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                           : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
-                      }`} 
+                        }`}
                     />
                     {fieldErrors.email && (
                       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
@@ -606,19 +601,18 @@ export default function MerchantApprovals() {
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.phone')}</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. +95 9 123 4567" 
+                    <input
+                      type="text"
+                      placeholder="e.g. +95 9 123 4567"
                       value={addFormData.phone}
                       onChange={(e) => {
-                        setAddFormData({...addFormData, phone: e.target.value});
+                        setAddFormData({ ...addFormData, phone: e.target.value });
                         if (fieldErrors.phone) setFieldErrors(prev => ({ ...prev, phone: '' }));
                       }}
-                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
-                        fieldErrors.phone 
-                          ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                      className={`w-full px-3 py-2 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${fieldErrors.phone
+                          ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                           : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
-                      }`} 
+                        }`}
                     />
                     {fieldErrors.phone && (
                       <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
@@ -631,19 +625,18 @@ export default function MerchantApprovals() {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t('merchants.password')} *</label>
                     <div className="relative">
-                      <input 
-                        type={showPassword ? "text" : "password"} 
-                        placeholder="Min. 6 characters" 
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Min. 6 characters"
                         value={addFormData.rawPassword}
                         onChange={(e) => {
-                          setAddFormData({...addFormData, rawPassword: e.target.value});
+                          setAddFormData({ ...addFormData, rawPassword: e.target.value });
                           if (fieldErrors.rawPassword) setFieldErrors(prev => ({ ...prev, rawPassword: '' }));
                         }}
-                        className={`w-full px-3 py-2 pr-10 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${
-                          fieldErrors.rawPassword 
-                            ? 'border-red-500 focus:ring-2 focus:ring-red-500' 
+                        className={`w-full px-3 py-2 pr-10 border rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none transition-colors ${fieldErrors.rawPassword
+                            ? 'border-red-500 focus:ring-2 focus:ring-red-500'
                             : 'border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'
-                        }`} 
+                          }`}
                       />
                       <button
                         type="button"
@@ -665,16 +658,16 @@ export default function MerchantApprovals() {
             </div>
 
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 flex justify-end space-x-3">
-              <button 
+              <button
                 disabled={isRegistering}
-                onClick={closeModal} 
+                onClick={closeModal}
                 className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium transition-colors disabled:opacity-50"
               >
                 {t('common.cancel')}
               </button>
-              <button 
+              <button
                 disabled={isRegistering}
-                onClick={handleRegisterMerchant} 
+                onClick={handleRegisterMerchant}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
               >
                 {isRegistering && <Loader2 className="h-4 w-4 animate-spin" />}
