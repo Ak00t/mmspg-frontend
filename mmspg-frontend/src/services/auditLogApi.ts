@@ -3,6 +3,7 @@ import { api } from './api';
 export interface AuditLogItem {
   auditId: number;
   actorId: string;
+  actorUsername?: string;
   actorType: string;
   roleName: string;
   permissionUsed?: string;

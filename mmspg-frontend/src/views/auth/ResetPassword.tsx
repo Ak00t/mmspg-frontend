@@ -39,8 +39,12 @@ export default function ResetPassword() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long.');
+    const hasMinLength = newPassword.length >= 8;
+    const hasUppercase = /[A-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+
+    if (!hasMinLength || !hasUppercase || !hasNumber) {
+      setError('Password must be at least 8 characters long and contain at least one uppercase letter (A-Z) and one number (0-9).');
       return;
     }
 
@@ -111,7 +115,17 @@ export default function ResetPassword() {
             {error && (
               <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-700 leading-snug">{error}</p>
+                <div className="space-y-1">
+                  <p className="text-sm text-red-700 leading-snug">{error}</p>
+                  {(error.toLowerCase().includes('expired') || error.toLowerCase().includes('used') || error.toLowerCase().includes('invalid')) && (
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs font-semibold text-red-800 hover:text-red-900 underline block mt-1"
+                    >
+                      Request a new reset code &rarr;
+                    </Link>
+                  )}
+                </div>
               </div>
             )}
 
@@ -136,7 +150,9 @@ export default function ResetPassword() {
                     className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white text-slate-900 disabled:bg-slate-100 disabled:text-slate-400 text-sm font-mono tracking-wider"
                   />
                 </div>
-                <p className="mt-1 text-xs text-slate-400">Enter the 6-digit code sent to your email</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Enter the 6-digit code sent to your email (expires in 5 minutes, single-use only)
+                </p>
               </div>
 
               {/* New Password */}
@@ -171,7 +187,22 @@ export default function ResetPassword() {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-slate-400">Must be at least 8 characters long</p>
+
+                {/* Live Password Requirements Checklist */}
+                <div className="mt-2 space-y-1 text-xs">
+                  <div className={`flex items-center gap-1.5 ${newPassword.length >= 8 ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}>
+                    <CheckCircle2 className={`w-3.5 h-3.5 ${newPassword.length >= 8 ? 'text-emerald-600' : 'text-slate-300'}`} />
+                    <span>At least 8 characters</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 ${/[A-Z]/.test(newPassword) ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}>
+                    <CheckCircle2 className={`w-3.5 h-3.5 ${/[A-Z]/.test(newPassword) ? 'text-emerald-600' : 'text-slate-300'}`} />
+                    <span>At least one uppercase letter (A-Z)</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 ${/[0-9]/.test(newPassword) ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}>
+                    <CheckCircle2 className={`w-3.5 h-3.5 ${/[0-9]/.test(newPassword) ? 'text-emerald-600' : 'text-slate-300'}`} />
+                    <span>At least one number (0-9)</span>
+                  </div>
+                </div>
               </div>
 
               {/* Confirm New Password */}

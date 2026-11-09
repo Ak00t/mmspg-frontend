@@ -331,11 +331,13 @@ export default function AuditLogs() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="font-medium text-slate-900 dark:text-white text-xs">
-                        {log.roleName === 'UNKNOWN' ? 'SYSTEM' : (log.roleName || 'SYSTEM')}
+                        {log.actorUsername || (log.roleName === 'UNKNOWN' ? 'SYSTEM' : (log.roleName || 'SYSTEM'))}
                       </div>
-                      {/* <div className="text-[11px] font-mono text-slate-400 truncate max-w-[140px]">
-                        {log.actorId || 'SYSTEM'}
-                      </div> */}
+                      {log.actorUsername && log.roleName && log.roleName !== 'SYSTEM' && (
+                        <div className="text-[11px] text-slate-400">
+                          {log.roleName}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap font-medium text-slate-800 dark:text-slate-200 text-xs">
                       {log.menuName}
@@ -434,8 +436,8 @@ export default function AuditLogs() {
                   </span>
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">Actor ID</span>
-                  <span className="font-mono text-slate-800 dark:text-slate-200 break-all">{selectedLog.actorId || 'SYSTEM'}</span>
+                  <span className="font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">Operator</span>
+                  <span className="text-slate-900 dark:text-white font-medium break-all">{selectedLog.actorUsername || 'SYSTEM'}</span>
                 </div>
               </div>
 

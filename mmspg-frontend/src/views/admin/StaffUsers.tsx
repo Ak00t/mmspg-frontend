@@ -93,8 +93,12 @@ export default function StaffUsers() {
 
     if (!newUser.password) {
       errors.password = 'Password is required';
-    } else if (newUser.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters long';
+    } else if (newUser.password.length < 8) {
+      errors.password = 'Password must be at least 8 characters long';
+    } else if (!/[A-Z]/.test(newUser.password)) {
+      errors.password = 'Password must contain at least one uppercase letter (A-Z)';
+    } else if (!/[0-9]/.test(newUser.password)) {
+      errors.password = 'Password must contain at least one number (0-9)';
     }
 
     if (!newUser.role) {
